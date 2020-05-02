@@ -68,7 +68,7 @@ if(ANOMALY_ENABLE_CLANG_TIDY)
 endif()
 
 set(ANOMALY_PUBLIC_HEADERS
-                        src/anomaly/model.hpp
+                        src/anomaly/whisper/model.hpp
                         )
 add_library(anomaly_headers INTERFACE)
 target_include_directories(anomaly_headers INTERFACE
@@ -78,7 +78,7 @@ target_include_directories(anomaly_headers INTERFACE
 
 add_executable(anomaly
                         ${ANOMALY_PUBLIC_HEADERS}
-                        src/anomaly/model.cpp
+                        src/anomaly/whisper/model.cpp
                         src/anomaly/main.cpp
                         )
 target_link_libraries(anomaly PUBLIC anomaly_headers

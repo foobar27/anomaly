@@ -1,4 +1,4 @@
-#include "model.hpp"
+#include "whisper/model.hpp"
 
 #include <fstream>
 #include <vector>
