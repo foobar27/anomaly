@@ -4,6 +4,7 @@
 #include <vector>
 
 using namespace std;
+using namespace anomaly::whisper::model;
 
 int main() {
     ifstream is ("/home/sebastien/percent.wsp", ifstream::binary);

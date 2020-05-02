@@ -3,6 +3,8 @@
 #include <boost/endian.hpp>
 #include <boost/integer.hpp>
 
+namespace anomaly::whisper::model {
+
 std::ostream & operator << (std::ostream &out, const DebugWrapper<AggregationType> & t) {
     switch (t.m_value) {
     case AggregationType::average:
@@ -140,3 +142,4 @@ std::ostream & operator << (std::ostream &out, const DebugWrapper<Point> &p) {
     return out;
 }
 
+}

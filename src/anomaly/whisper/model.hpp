@@ -3,6 +3,8 @@
 #include <cstdint>
 #include <iostream>
 
+namespace anomaly::whisper::model {
+
 template<typename T>
 struct DebugWrapper {
     const T &m_value;
@@ -31,7 +33,7 @@ struct MetaData {
 };
 
 std::ostream & operator << (std::ostream &, const MetaData &);
-std::istream & operator >> (std::istream &,  MetaData &);
+std::istream & operator >> (std::istream &, MetaData &);
 std::ostream & operator << (std::ostream &out, const DebugWrapper<MetaData> & m);
 
 struct ArchiveInfo {
@@ -49,9 +51,10 @@ struct ArchiveInfo {
     }
 };
 
-std::ostream & operator << (std::ostream &, const ArchiveInfo &);
-std::istream & operator >> (std::istream &,  ArchiveInfo &);
-std::ostream & operator << (std::ostream &out, const DebugWrapper<ArchiveInfo> &a);
+std::ostream & operator << (std::ostream &, const anomaly::whisper::model::ArchiveInfo &);
+std::istream & operator >> (std::istream &, anomaly::whisper::model::ArchiveInfo &);
+std::ostream & operator << (std::ostream &out, const anomaly::whisper::model::DebugWrapper<anomaly::whisper::model::ArchiveInfo> &a);
+
 
 struct Point {
     uint32_t m_timestamp;
@@ -59,5 +62,10 @@ struct Point {
 };
 
 std::ostream & operator << (std::ostream &, const Point &);
-std::istream & operator >> (std::istream &,  Point &);
+std::istream & operator >> (std::istream &, Point &);
 std::ostream & operator << (std::ostream &out, const DebugWrapper<Point> &p);
+
+}
+
+
+
