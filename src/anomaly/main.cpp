@@ -24,13 +24,21 @@ int main() {
              <<  endl;
     }
 
-    // TODO(sw) how to iterate in order: rotating files, reverse archives?
-    for (auto & archive_info : archive_infos) {
-        for (uint i = 0; i < archive_info.m_numberOfPoints; ++i) {
-            Point point {};
-            is >> point;
-            //std::cout << "point[" << i << "] = ";
-            //cout << debug(point) << endl;
+    //for (auto & archive_info : archive_infos) {
+    {
+        std::ofstream os("/tmp/percent-recent.tsv");
+        auto archive_info = archive_infos[0];
+        vector<Point> points {};
+
+        Archive archive { archive_info };
+        archive.readPoints(is);
+        uint32_t ts {};
+        for (const auto & point : archive.m_points) {
+            auto delta = (point.m_timestamp - ts);
+            if (delta != 0) {
+                std::cout << delta << endl;
+            }
+            ts = point.m_timestamp;
         }
     }
 

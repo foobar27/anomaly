@@ -142,4 +142,24 @@ std::ostream & operator << (std::ostream &out, const DebugWrapper<Point> &p) {
     return out;
 }
 
+void Archive::readPoints(std::istream &is) {
+    uint32_t previous_ts {};
+    auto offset = m_points.end();
+    for (unsigned int i = 0; i < m_info.m_numberOfPoints; ++i) {
+        Point point {};
+        is >> point;
+        auto ts = point.m_timestamp;
+        if (ts < previous_ts) {
+            // We encountered the split point of the circular buffer.
+            // Let offset point to the current position.
+            // Since we didn't call push_back yet, end() points to the current position.
+            offset = m_points.end();
+        }
+        m_points.push_back(point);
+    }
+    if (offset != m_points.end()) {
+        m_points.rotate(offset);
+    }
 }
+
+} // end namespace anomaly::whisper::model

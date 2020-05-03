@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <iostream>
+#include <boost/circular_buffer.hpp>
 
 namespace anomaly::whisper::model {
 
@@ -64,6 +65,19 @@ struct Point {
 std::ostream & operator << (std::ostream &, const Point &);
 std::istream & operator >> (std::istream &, Point &);
 std::ostream & operator << (std::ostream &out, const DebugWrapper<Point> &p);
+
+struct Archive {
+    ArchiveInfo m_info;
+    boost::circular_buffer<Point> m_points;
+
+    Archive(ArchiveInfo & info)
+        : m_info { info }
+        , m_points { m_info.m_numberOfPoints }
+    {}
+
+    void readPoints(std::istream &);
+
+};
 
 }
 
