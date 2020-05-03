@@ -37,10 +37,8 @@ int main() {
         }
         auto time_series = archive.createTimeSeries();
         // TODO(sw) implement a range?
-        unsigned int i = 0;
-        for (auto value : time_series.rawValueRange()) {
-            std::cout << "time_series[" << i << "]=" << value << std::endl;
-            ++i;
+        for (auto point : time_series.allPoints()) {
+            std::cout << "time_series[" << point.index() << "]=" << point.value() << std::endl;
         }
     }
 
