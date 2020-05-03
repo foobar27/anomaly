@@ -19,9 +19,9 @@ int main() {
         is >> archive_info;
         archive_infos.push_back(archive_info);
         cout << debug(archive_info)
-             << " retention=" << archive_info.retention()
-             << " size=" << archive_info.size()
-             <<  endl;
+        cout << " retention=" << archive_info.retention()
+        cout << " size=" << archive_info.size()
+        cout <<  endl;
     }
 
     //for (auto & archive_info : archive_infos) {
@@ -35,9 +35,9 @@ int main() {
         uint32_t ts {};
         for (const auto & point : archive.m_points) {
             auto delta = (point.m_timestamp - ts);
-            if (delta != 0) {
-                std::cout << delta << endl;
-            }
+            //if (delta != 60) {
+                std::cout << point.m_timestamp << endl;
+            //}
             ts = point.m_timestamp;
         }
     }
