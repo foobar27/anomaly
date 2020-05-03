@@ -38,7 +38,14 @@ int main() {
         auto time_series = archive.createTimeSeries();
         // TODO(sw) implement a range?
         for (auto point : time_series.allPoints()) {
-            std::cout << "time_series[" << point.index() << "]=" << point.value() << std::endl;
+            auto val = point.m_value;
+            cout << "time_series[" << point.m_timestamp << "]=";
+            if (val) {
+                cout << *val;
+            } else {
+                cout << "null";
+            }
+            cout << std::endl;
         }
     }
 

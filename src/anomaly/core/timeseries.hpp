@@ -2,9 +2,6 @@
 
 #include <optional>
 #include <vector>
-#include <boost/dynamic_bitset.hpp>
-#include <boost/range/adaptor/transformed.hpp>
-#include <boost/range/adaptor/indexed.hpp>
 
 namespace anomaly::core::timeseries {
 
@@ -15,8 +12,10 @@ struct TimeSeriesConfiguration {
     size_t   m_stepInSeconds;
 };
 
-using ValueVector        = std::vector<double>;
-using ValueConstIterator = typename ValueVector::const_iterator;
+struct Point {
+    uint32_t              m_timestamp;
+    std::optional<double> m_value;
+};
 
 // TODO(sw) rotating
 class TimeSeries {
@@ -28,23 +27,21 @@ public:
         return m_config;
     }
 
-    bool isInitialized(size_t idx) const;
+    Point& operator[](size_t i) {
+        return m_points[i];
+    }
 
-    std::optional<double> getAtIndex(size_t idx) const;
+    const Point& operator[](size_t i) const {
+        return m_points[i];
+    }
 
-    void setAtIndex(size_t idx, double value);
-
-    void resetAtIndex(size_t idx);
-
-    auto allPoints() const {
-        using namespace boost::adaptors;
-        return m_values | indexed(0);
+    auto allPoints() {
+        return m_points;
     }
 
 private:
     TimeSeriesConfiguration m_config;
-    ValueVector             m_values;
-    boost::dynamic_bitset<> m_initialized;
+    std::vector<Point>      m_points;
 };
 
 } // end namespace anomaly::core::timeseries

@@ -1,9 +1,9 @@
 #include "model.hpp"
 
 #include <algorithm>
-#include <iostream>
 #include <boost/endian.hpp>
 #include <boost/integer.hpp>
+#include <iostream>
 
 namespace anomaly::whisper::model {
 
@@ -191,15 +191,16 @@ core::timeseries::TimeSeries Archive::createTimeSeries() const {
     size_t     step_in_seconds   = m_info.m_secondsPerPoint;
     uint32_t   final_timestamp   = maxTimestamp(m_points);
     uint32_t   initial_timestamp = final_timestamp - (number_of_points - 1) * step_in_seconds;
-    TimeSeries timeseries{{number_of_points, initial_timestamp, final_timestamp, step_in_seconds}};
+    TimeSeries time_series{{number_of_points, initial_timestamp, final_timestamp, step_in_seconds}};
     for (const auto& point : m_points) {
         auto ts = point.m_timestamp;
         if (ts >= initial_timestamp && ts <= final_timestamp) {
             size_t idx = (ts - initial_timestamp) / step_in_seconds;
-            timeseries.setAtIndex(idx, point.m_value);
+
+            time_series[idx].m_value = point.m_value;
         }
     }
-    return timeseries;
+    return time_series;
 }
 
 } // end namespace anomaly::whisper::model
