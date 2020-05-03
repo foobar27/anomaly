@@ -2,40 +2,36 @@
 
 #include <cstdint>
 #include <iostream>
-#include <boost/circular_buffer.hpp>
+#include <vector>
+
+#include "../core/timeseries.hpp"
 
 namespace anomaly::whisper::model {
 
-template<typename T>
+template <typename T>
 struct DebugWrapper {
-    const T &m_value;
+    const T& m_value;
 };
 
-template<typename T>
-DebugWrapper<T> debug(const T &value) {
-    return { value };
+template <typename T>
+DebugWrapper<T> debug(const T& value) {
+    return {value};
 }
 
-enum class AggregationType : uint32_t {
-    average = 1,
-    sum = 2,
-    last = 3,
-    max = 4,
-    min = 5
-};
+enum class AggregationType : uint32_t { average = 1, sum = 2, last = 3, max = 4, min = 5 };
 
-std::ostream & operator << (std::ostream &out, const DebugWrapper<AggregationType> &);
+std::ostream& operator<<(std::ostream& out, const DebugWrapper<AggregationType>&);
 
 struct MetaData {
     AggregationType m_aggregationType;
-    uint32_t m_maxRetention;
-    float m_xFilesFactor;
-    uint32_t m_archiveCount;
+    uint32_t        m_maxRetention;
+    float           m_xFilesFactor;
+    uint32_t        m_archiveCount;
 };
 
-std::ostream & operator << (std::ostream &, const MetaData &);
-std::istream & operator >> (std::istream &, MetaData &);
-std::ostream & operator << (std::ostream &out, const DebugWrapper<MetaData> & m);
+std::ostream& operator<<(std::ostream&, const MetaData&);
+std::istream& operator>>(std::istream&, MetaData&);
+std::ostream& operator<<(std::ostream& out, const DebugWrapper<MetaData>& m);
 
 struct ArchiveInfo {
     uint32_t m_offset;
@@ -52,34 +48,30 @@ struct ArchiveInfo {
     }
 };
 
-std::ostream & operator << (std::ostream &, const anomaly::whisper::model::ArchiveInfo &);
-std::istream & operator >> (std::istream &, anomaly::whisper::model::ArchiveInfo &);
-std::ostream & operator << (std::ostream &out, const anomaly::whisper::model::DebugWrapper<anomaly::whisper::model::ArchiveInfo> &a);
-
+std::ostream& operator<<(std::ostream&, const anomaly::whisper::model::ArchiveInfo&);
+std::istream& operator>>(std::istream&, anomaly::whisper::model::ArchiveInfo&);
+std::ostream& operator<<(std::ostream& out, const anomaly::whisper::model::DebugWrapper<anomaly::whisper::model::ArchiveInfo>& a);
 
 struct Point {
     uint32_t m_timestamp;
-    double m_value;
+    double   m_value;
 };
 
-std::ostream & operator << (std::ostream &, const Point &);
-std::istream & operator >> (std::istream &, Point &);
-std::ostream & operator << (std::ostream &out, const DebugWrapper<Point> &p);
+std::ostream& operator<<(std::ostream&, const Point&);
+std::istream& operator>>(std::istream&, Point&);
+std::ostream& operator<<(std::ostream& out, const DebugWrapper<Point>& p);
 
 struct Archive {
-    ArchiveInfo m_info;
-    boost::circular_buffer<Point> m_points;
+    ArchiveInfo        m_info;
+    std::vector<Point> m_points;
 
-    Archive(ArchiveInfo & info)
-        : m_info { info }
-        , m_points { m_info.m_numberOfPoints }
-    {}
+    Archive(ArchiveInfo& info)
+        : m_info{info}
+        , m_points{m_info.m_numberOfPoints} { }
 
-    void readPoints(std::istream &);
+    void readPoints(std::istream&);
 
+    core::timeseries::TimeSeries createTimeSeries() const;
 };
 
-}
-
-
-
+} // end namespace anomaly::whisper::model

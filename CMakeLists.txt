@@ -68,8 +68,9 @@ if(ANOMALY_ENABLE_CLANG_TIDY)
 endif()
 
 set(ANOMALY_PUBLIC_HEADERS
-                        src/anomaly/whisper/model.hpp
-                        )
+        src/anomaly/whisper/model.hpp
+        src/anomaly/core/timeseries.hpp
+        )
 add_library(anomaly_headers INTERFACE)
 target_include_directories(anomaly_headers INTERFACE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
@@ -78,6 +79,7 @@ target_include_directories(anomaly_headers INTERFACE
 
 add_executable(anomaly
                         ${ANOMALY_PUBLIC_HEADERS}
+                        src/anomaly/core/timeseries.cpp
                         src/anomaly/whisper/model.cpp
                         src/anomaly/main.cpp
                         )

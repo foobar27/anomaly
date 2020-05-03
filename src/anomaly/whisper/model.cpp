@@ -1,5 +1,7 @@
 #include "model.hpp"
 
+#include <algorithm>
+#include <iostream>
 #include <boost/endian.hpp>
 #include <boost/integer.hpp>
 
@@ -143,23 +145,61 @@ std::ostream& operator<<(std::ostream& out, const DebugWrapper<Point>& p) {
 }
 
 void Archive::readPoints(std::istream& is) {
+    // Let's suppose there are no 0 timestamps.
+    // We expect the timestamps to increase by m_secondsPerPoint between every value,
+    // except at one point where there is a big drop (where the circular buffer starts from scratch).
+    // We will call this drop expected_drop.
+    // TODO(sw) handle 0 timestamps
+    auto     expected_delta = m_info.m_secondsPerPoint * (m_info.m_numberOfPoints - 1);
     uint32_t previous_ts{};
     auto     offset = m_points.end();
+    uint32_t max_ts{};
     for (unsigned int i = 0; i < m_info.m_numberOfPoints; ++i) {
         Point point{};
         is >> point;
-        auto ts = point.m_timestamp;
-        if (ts < previous_ts) {
+        auto ts    = point.m_timestamp;
+        max_ts     = std::max(max_ts, ts);
+        auto delta = ts - previous_ts;
+        if (delta != 60) {
+            std::cout << "delta[" << i << "]=" << delta << " (expected_delta=" << expected_delta << ")" << std::endl;
+        }
+        if (delta == expected_delta) {
             // We encountered the split point of the circular buffer.
             // Let offset point to the current position.
-            // Since we didn't call push_back yet, end() points to the current position.
+            // Since we didn't call push_back yet, end() points to the
+            // first element after the drop.
             offset = m_points.end();
         }
         m_points.push_back(point);
+        previous_ts = ts;
     }
-    if (offset != m_points.end()) {
-        m_points.rotate(offset);
+    std::cout << "max" << max_ts << std::endl;
+}
+
+static uint32_t maxTimestamp(const std::vector<Point>& points) {
+    // TODO(sw) use std::ranges (needs gcc10)
+    uint32_t output = 0;
+    for (const auto& point : points) {
+        output = std::max(output, point.m_timestamp);
     }
+    return output;
+}
+
+core::timeseries::TimeSeries Archive::createTimeSeries() const {
+    using namespace core::timeseries;
+    size_t     number_of_points  = m_info.m_numberOfPoints;
+    size_t     step_in_seconds   = m_info.m_secondsPerPoint;
+    uint32_t   final_timestamp   = maxTimestamp(m_points);
+    uint32_t   initial_timestamp = final_timestamp - (number_of_points - 1) * step_in_seconds;
+    TimeSeries timeseries{{number_of_points, initial_timestamp, final_timestamp, step_in_seconds}};
+    for (const auto& point : m_points) {
+        auto ts = point.m_timestamp;
+        if (ts >= initial_timestamp && ts <= final_timestamp) {
+            size_t idx = (ts - initial_timestamp) / step_in_seconds;
+            timeseries.setAtIndex(idx, point.m_value);
+        }
+    }
+    return timeseries;
 }
 
 } // end namespace anomaly::whisper::model
