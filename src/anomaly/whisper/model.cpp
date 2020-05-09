@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <boost/endian.hpp>
 #include <boost/integer.hpp>
-#include <iostream>
 
 namespace anomaly::whisper::model {
 
@@ -160,9 +159,6 @@ void Archive::readPoints(std::istream& is) {
         auto ts    = point.m_timestamp;
         max_ts     = std::max(max_ts, ts);
         auto delta = ts - previous_ts;
-        if (delta != 60) {
-            std::cout << "delta[" << i << "]=" << delta << " (expected_delta=" << expected_delta << ")" << std::endl;
-        }
         if (delta == expected_delta) {
             // We encountered the split point of the circular buffer.
             // Let offset point to the current position.
@@ -173,7 +169,6 @@ void Archive::readPoints(std::istream& is) {
         m_points.push_back(point);
         previous_ts = ts;
     }
-    std::cout << "max" << max_ts << std::endl;
 }
 
 static uint32_t maxTimestamp(const std::vector<Point>& points) {

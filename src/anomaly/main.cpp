@@ -2,15 +2,20 @@
 
 #include <fstream>
 #include <vector>
+#include <sstream>
+#include <boost/array.hpp>
 #include <boost/accumulators/accumulators.hpp>
 #include <boost/accumulators/statistics/mean.hpp>
+#include <boost/accumulators/statistics/extended_p_square_quantile.hpp>
 #include <boost/accumulators/statistics/stats.hpp>
 
 using namespace std;
 using namespace anomaly::whisper::model;
 using anomaly::core::timeseries::TimeSeries;
 
-class MedianEstimator {
+constexpr double rate = 0.1;
+
+class MedianEstimator { // TODO(sw) could be a boost accumulator
 public:
     void operator()(double value) {
         if (m_first) {
@@ -18,9 +23,9 @@ public:
             m_first    = false;
         } else {
             if (value > m_estimate) {
-                m_estimate++;
+                m_estimate += rate;
             } else if (value < m_estimate) {
-                m_estimate--;
+                m_estimate -= rate;
             }
         }
     }
@@ -33,6 +38,18 @@ private:
     bool   m_first = true;
     double m_estimate;
 };
+
+double determineInterquantileRange(const TimeSeries& time_series) {
+    using namespace boost::accumulators;
+    using Accumulator = accumulator_set<double, stats<tag::extended_p_square>>;
+
+    constexpr boost::array<double, 3> probs = {0.25, 0.75};
+    Accumulator                       acc(tag::extended_p_square::probabilities = probs);
+    time_series.template accumulateNonNull(acc);
+    auto p25 = extended_p_square(acc)[0];
+    auto p75 = extended_p_square(acc)[1];
+    return p75 - p25;
+}
 
 int main() {
     ifstream is("/home/sebastien/percent.wsp", ifstream::binary);
@@ -72,17 +89,24 @@ int main() {
             }
         }
 
+        auto range_in_points  = determineInterquantileRange(time_series);
+        auto range_in_seconds = range_in_points * time_series.getConfig().m_stepInSeconds;
+        cout << "Learning rate 1 would mean " << range_in_seconds << " seconds to traverse the inter-quantile range" << endl;
+
         // TODO(sw) implement a range?
         MedianEstimator median;
         MedianEstimator median_deviation;
+        os << "timestamp\tvalue\tmedian\tmedian_deviation\tseason" << endl;
         for (auto point : time_series.allPoints()) {
             if (point.m_value) {
                 double val    = *point.m_value;
                 auto   bin    = (point.m_timestamp / time_series.getConfig().m_stepInSeconds) % number_of_bins;
                 auto   season = boost::accumulators::mean(bins[bin]);
-                median(val);
-                double deviation = abs(val - *median);
-                media_deviation(deviation);
+
+                auto noSeason = val; // TODO minus season
+                median(noSeason);
+                double deviation = abs(noSeason - *median);
+                median_deviation(deviation);
                 os << point.m_timestamp << "\t" << *point.m_value << "\t" << *median << "\t" << *median_deviation << "\t" << season << endl;
             }
         }

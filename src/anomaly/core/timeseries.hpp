@@ -2,6 +2,7 @@
 
 #include <optional>
 #include <vector>
+#include <boost/accumulators/accumulators.hpp>
 
 namespace anomaly::core::timeseries {
 
@@ -37,6 +38,17 @@ public:
 
     auto allPoints() {
         return m_points;
+    }
+
+    // TODO enforce Concept
+    template <typename Accumulator>
+    void accumulateNonNull(Accumulator& acc) const {
+        // TODO simplify with ranges and std::for_each(..., acc)
+        for (auto& point : m_points) {
+            if (point.m_value) {
+                acc(*point.m_value);
+            }
+        }
     }
 
 private:
