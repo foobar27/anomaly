@@ -40,7 +40,11 @@ public:
         return m_points;
     }
 
-    // TODO enforce Concept
+    auto allPoints() const {
+        return m_points;
+    }
+
+    // TODO inline this once we have proper ranges
     template <typename Accumulator>
     void accumulateNonNull(Accumulator& acc) const {
         // TODO simplify with ranges and std::for_each(..., acc)

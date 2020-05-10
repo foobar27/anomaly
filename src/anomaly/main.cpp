@@ -13,19 +13,20 @@ using namespace std;
 using namespace anomaly::whisper::model;
 using anomaly::core::timeseries::TimeSeries;
 
-constexpr double rate = 0.1;
-
 class MedianEstimator { // TODO(sw) could be a boost accumulator
 public:
+    MedianEstimator(double learningRate)
+        : m_learningRate(learningRate) { }
+
     void operator()(double value) {
         if (m_first) {
             m_estimate = value;
             m_first    = false;
         } else {
             if (value > m_estimate) {
-                m_estimate += rate;
+                m_estimate += m_learningRate;
             } else if (value < m_estimate) {
-                m_estimate -= rate;
+                m_estimate -= m_learningRate;
             }
         }
     }
@@ -35,8 +36,9 @@ public:
     }
 
 private:
-    bool   m_first = true;
-    double m_estimate;
+    const double m_learningRate;
+    bool         m_first = true;
+    double       m_estimate;
 };
 
 double determineInterquantileRange(const TimeSeries& time_series) {
@@ -49,6 +51,27 @@ double determineInterquantileRange(const TimeSeries& time_series) {
     auto p25 = extended_p_square(acc)[0];
     auto p75 = extended_p_square(acc)[1];
     return p75 - p25;
+}
+
+// TODO this should be a cyclic TimeSeries (less storage)
+TimeSeries determineSeasonalComponent(const TimeSeries& input) {
+    using Accumulator = boost::accumulators::accumulator_set<double, boost::accumulators::features<boost::accumulators::tag::mean>>;
+    auto                step_in_seconds = input.getConfig().m_stepInSeconds;
+    size_t              number_of_bins  = 1440; // TODO(sw) deduce
+    vector<Accumulator> bins(number_of_bins);
+    for (auto& point : input.allPoints()) {
+        auto bin = (point.m_timestamp / step_in_seconds) % number_of_bins;
+        if (point.m_value) {
+            bins[bin](*point.m_value);
+        }
+    }
+    TimeSeries output{input.getConfig()};
+    for (auto& point : input.allPoints()) {
+        auto bin = (point.m_timestamp / step_in_seconds) % number_of_bins;
+        // TODO only set if bin is not empty!
+        point.m_value = boost::accumulators::mean(bins[bin]);
+    }
+    return output;
 }
 
 int main() {
@@ -71,7 +94,7 @@ int main() {
 
     // for (auto & archive_info : archive_infos) {
     {
-        std::ofstream os("/tmp/percent-recent.tsv");
+        ofstream      os("/tmp/percent-recent.tsv");
         auto          archive_info = archive_infos[0];
         vector<Point> points{};
 
@@ -79,36 +102,28 @@ int main() {
         archive.readPoints(is);
         auto time_series = archive.createTimeSeries();
 
-        using Accumulator = boost::accumulators::accumulator_set<double, boost::accumulators::features<boost::accumulators::tag::mean>>;
-        int                 number_of_bins = 1440;
-        vector<Accumulator> bins(number_of_bins);
-        for (auto point : time_series.allPoints()) {
-            auto bin = (point.m_timestamp / time_series.getConfig().m_stepInSeconds) % number_of_bins;
-            if (point.m_value) {
-                bins[bin](*point.m_value);
-            }
-        }
-
         auto range_in_points  = determineInterquantileRange(time_series);
         auto range_in_seconds = range_in_points * time_series.getConfig().m_stepInSeconds;
         cout << "Learning rate 1 would mean " << range_in_seconds << " seconds to traverse the inter-quantile range" << endl;
 
+        auto seasonal = determineSeasonalComponent(time_series);
         // TODO(sw) implement a range?
-        MedianEstimator median;
-        MedianEstimator median_deviation;
+        MedianEstimator median(1.0);
+        MedianEstimator median_deviation(1.0);
         os << "timestamp\tvalue\tmedian\tmedian_deviation\tseason" << endl;
+        auto seasonal_it = seasonal.allPoints().begin(); // TODO(sw) iterate over two ranges
         for (auto point : time_series.allPoints()) {
             if (point.m_value) {
                 double val    = *point.m_value;
-                auto   bin    = (point.m_timestamp / time_series.getConfig().m_stepInSeconds) % number_of_bins;
-                auto   season = boost::accumulators::mean(bins[bin]);
+                auto   season = seasonal_it->m_value;
 
                 auto noSeason = val; // TODO minus season
                 median(noSeason);
                 double deviation = abs(noSeason - *median);
                 median_deviation(deviation);
-                os << point.m_timestamp << "\t" << *point.m_value << "\t" << *median << "\t" << *median_deviation << "\t" << season << endl;
+                os << point.m_timestamp << "\t" << *point.m_value << "\t" << *median << "\t" << *median_deviation << "\t" << *season << endl;
             }
+            seasonal_it++;
         }
     }
 
