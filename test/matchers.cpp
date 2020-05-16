@@ -1,25 +1,20 @@
 #include "matchers.hpp"
 
-class IntRange : public Catch::MatcherBase<int> {
-    int m_begin, m_end;
-
-public:
-    IntRange(int begin, int end)
-        : m_begin(begin)
-        , m_end(end) { }
-
-    // Performs the test for this matcher
-    bool match(int const& i) const override {
-        return i >= m_begin && i <= m_end;
+bool VectorXdEquality::match(const Eigen::VectorXd& actual) const {
+    if (actual.size() != m_expected.size()) {
+        return false;
     }
-
-    // Produces a string describing what this matcher does. It should
-    // include any provided data (the begin/ end in this case) and
-    // be written as if it were stating a fact (in the output it will be
-    // preceded by the value under test).
-    virtual std::string describe() const override {
-        std::ostringstream ss;
-        ss << "is between " << m_begin << " and " << m_end;
-        return ss.str();
+    constexpr double epsilon = 0.1;
+    for (int i = 0; i < actual.size(); ++i) {
+        if (abs(m_expected[i] - actual[i]) > epsilon) {
+            return false;
+        }
     }
-};
+    return true;
+}
+
+std::string VectorXdEquality::describe() const {
+    std::ostringstream ss;
+    ss << "should have size " << m_expected.size() << " and values " << m_expected;
+    return ss.str();
+}
