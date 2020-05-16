@@ -37,8 +37,7 @@ bool LowessAlgorithm::lowest(const Eigen::VectorXd& positions,
 
     Index n_rt{};
 
-    Scalar sumOfWeights = 0.0; // sum of weights
-    Index  j            = n_left; // The loop might terminate earlier, we need to remember the last loop position.
+    Index j = n_left; // The loop might terminate earlier, we need to remember the last loop position.
     for (; j < n; j++) { // compute weights (pick up all ties on right)
         weights[j] = 0.0;
         auto r     = abs(positions[j] - position);
@@ -47,20 +46,22 @@ bool LowessAlgorithm::lowest(const Eigen::VectorXd& positions,
                 weights[j] = triCube(r / h);
             else
                 weights[j] = 1.0;
-            if (use_rw)
-                weights[j] *= m_robustnessWeights[j];
-            sumOfWeights += weights[j];
         } else if (positions[j] > position)
             break; // get out at first zero wt on right
     }
-    n_rt = j; // rightmost pt (may be greater than nright because of ties)
+    // rightmost pt (may be greater than n_right because of ties)
+    auto weights_seg           = weights.segment(n_left, j - n_left);
+    auto robustnessWeights_seg = m_robustnessWeights.segment(n_left, j - n_left);
+    auto input_seg             = input.segment(n_left, j - n_left);
+    auto positions_seg         = positions.segment(n_left, j - n_left);
+
+    if (use_rw)
+        weights_seg.array() *= robustnessWeights_seg.array();
+
+    // make sum of w(j) == 1 (if possible)
+    auto sumOfWeights = weights_seg.sum();
     if (sumOfWeights <= 0.0)
         return false;
-    auto weights_seg   = weights.segment(n_left, n_rt - n_left);
-    auto input_seg     = input.segment(n_left, n_rt - n_left);
-    auto positions_seg = positions.segment(n_left, n_rt - n_left);
-
-    // make sum of w(j) == 1
     weights_seg /= sumOfWeights;
 
     // weighted least squares
