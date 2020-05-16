@@ -31,14 +31,14 @@ bool LowessAlgorithm::lowest(const Eigen::VectorXd& positions,
                              const bool             use_rw) {
     auto n     = positions.size();
     auto range = positions[n - 1] - positions[0];
-    auto h     = std::max(position - positions[n_left - 1], positions[n_right - 1] - position);
+    auto h     = std::max(position - positions[n_left], positions[n_right - 1] - position);
     auto h9    = 0.999 * h;
     auto h1    = 0.001 * h;
 
     Index n_rt{};
     {
         Scalar a = 0.0; // sum of weights
-        Index  j = n_left - 1; // The loop might terminate earlier, we need to remember the last loop position.
+        Index  j = n_left; // The loop might terminate earlier, we need to remember the last loop position.
         for (; j < n; j++) { // compute weights (pick up all ties on right)
             weights[j] = 0.0;
             auto r     = abs(positions[j] - position);
@@ -58,32 +58,32 @@ bool LowessAlgorithm::lowest(const Eigen::VectorXd& positions,
         if (a <= 0.0)
             return false;
         // make sum of w(j) == 1
-        for (Index j = n_left - 1; j < n_rt; ++j)
+        for (Index j = n_left; j < n_rt; ++j)
             weights[j] /= a; // TODO(sw) simplify scalar multiplication
     }
 
     // weighted least squares
     if (h > 0.0) { // use linear fit
         double a = 0.0;
-        for (Index j = n_left - 1; j < n_rt; ++j) // TODO(sw) simplify via dot product
+        for (Index j = n_left; j < n_rt; ++j) // TODO(sw) simplify via dot product
             a += weights[j] * positions[j]; // weighted center of x values
         auto   b = position - a;
         double c = 0.0;
-        for (Index j = n_left - 1; j < n_rt; ++j) {
+        for (Index j = n_left; j < n_rt; ++j) {
             c += weights[j] * square(positions[j] - a); // TODO(sw) simplify dot product
         }
 
         if (sqrt(c) > .001 * range) {
             // points are spread out enough to compute slope
             b /= c;
-            for (Index j = n_left - 1; j < n_rt; ++j)
+            for (Index j = n_left; j < n_rt; ++j)
                 weights[j] = weights[j] * (1.0 + b * (positions[j] - a));
         }
     }
 
     // Compute output
     fittedValue = 0.0;
-    for (Index j = n_left - 1; j < n_rt; ++j) {
+    for (Index j = n_left; j < n_rt; ++j) {
         fittedValue += weights[j] * input[j]; // TODO(sw) simplify dot product
     }
     return true;
@@ -104,14 +104,14 @@ void LowessAlgorithm::lowess(const Eigen::VectorXd& positions, const Eigen::Vect
 
     // robustness iterations
     for (Index iter = 1; iter <= nSteps + 1; iter = iter + 1) {
-        Index n_left  = 1;
+        Index n_left  = 0;
         Index n_right = ns;
         Index last    = 0; // index of prev estimated point
         Index i       = 1; // index of current point
         do {
             while (n_right < n) {
-                // move nleft, nright to right if radius decreases
-                auto d1 = positions[i - 1] - positions[n_left - 1];
+                // move n_left, n_right to right if radius decreases
+                auto d1 = positions[i - 1] - positions[n_left];
                 auto d2 = positions[n_right] - positions[i - 1];
                 // if d1<=d2 with x(nright+1)==x(nright), lowest fixes
                 if (d1 <= d2)
