@@ -36,31 +36,30 @@ bool LowessAlgorithm::lowest(const Eigen::VectorXd& positions,
     auto h1    = 0.001 * h;
 
     Index n_rt{};
-    {
-        Scalar a = 0.0; // sum of weights
-        Index  j = n_left; // The loop might terminate earlier, we need to remember the last loop position.
-        for (; j < n; j++) { // compute weights (pick up all ties on right)
-            weights[j] = 0.0;
-            auto r     = abs(positions[j] - position);
-            if (r <= h9) { // small enough for non-zero weight
-                if (r > h1)
-                    weights[j] = triCube(r / h);
-                else
-                    weights[j] = 1.0;
-                if (use_rw)
-                    weights[j] *= m_robustnessWeights[j];
-                a += weights[j];
-            } else if (positions[j] > position)
-                break; // get out at first zero wt on right
-        }
-        // TODO shift:
-        n_rt = j + 1 - 1; // rightmost pt (may be greater than nright because of ties)
-        if (a <= 0.0)
-            return false;
-        // make sum of w(j) == 1
-        for (Index j = n_left; j < n_rt; ++j)
-            weights[j] /= a; // TODO(sw) simplify scalar multiplication
+
+    Scalar sumOfWeights = 0.0; // sum of weights
+    Index  j            = n_left; // The loop might terminate earlier, we need to remember the last loop position.
+    for (; j < n; j++) { // compute weights (pick up all ties on right)
+        weights[j] = 0.0;
+        auto r     = abs(positions[j] - position);
+        if (r <= h9) { // small enough for non-zero weight
+            if (r > h1)
+                weights[j] = triCube(r / h);
+            else
+                weights[j] = 1.0;
+            if (use_rw)
+                weights[j] *= m_robustnessWeights[j];
+            sumOfWeights += weights[j];
+        } else if (positions[j] > position)
+            break; // get out at first zero wt on right
     }
+    // TODO shift:
+    n_rt = j + 1 - 1; // rightmost pt (may be greater than nright because of ties)
+    if (sumOfWeights <= 0.0)
+        return false;
+    // make sum of w(j) == 1
+    for (Index j = n_left; j < n_rt; ++j)
+        weights[j] /= sumOfWeights; // TODO(sw) simplify scalar multiplication
 
     // weighted least squares
     if (h > 0.0) { // use linear fit
