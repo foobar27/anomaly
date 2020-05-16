@@ -4,6 +4,7 @@ project(anomaly)
 
 find_package(Boost 1.72 REQUIRED COMPONENTS
              date_time filesystem iostreams)
+find_package(Eigen3 3.3 REQUIRED NO_MODULE)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -70,6 +71,8 @@ endif()
 set(ANOMALY_PUBLIC_HEADERS
         src/anomaly/whisper/model.hpp
         src/anomaly/core/timeseries.hpp
+        src/anomaly/core/lowess.hpp
+        src/anomaly/core/stl.hpp
         )
 add_library(anomaly_headers INTERFACE)
 target_include_directories(anomaly_headers INTERFACE
@@ -77,21 +80,24 @@ target_include_directories(anomaly_headers INTERFACE
   $<INSTALL_INTERFACE:include>
 )
 
-add_executable(anomaly
-                        ${ANOMALY_PUBLIC_HEADERS}
-                        src/anomaly/core/timeseries.cpp
-                        src/anomaly/whisper/model.cpp
-                        src/anomaly/main.cpp
-                        )
+add_library(anomaly
+    ${ANOMALY_PUBLIC_HEADERS}
+    src/anomaly/core/timeseries.cpp
+    src/anomaly/core/stl.cpp
+    src/anomaly/core/lowess.cpp
+    src/anomaly/whisper/model.cpp
+    # src/anomaly/main.cpp
+    )
 target_link_libraries(anomaly PUBLIC anomaly_headers
                                        INTERFACE ${CMAKE_DL_LIBS}
+                                       Eigen3::Eigen
                                        Boost::date_time
                                        Boost::filesystem
                                        Boost::iostreams)
 
 set_target_properties(anomaly PROPERTIES PUBLIC_HEADER "${ANOMALY_PUBLIC_HEADERS}")
 
-# enable_testing()
+enable_testing()
 
 # Test library
 #add_library(anomaly_test_lib SHARED test/extension.cpp test/Interfaces.hpp)
@@ -99,13 +105,20 @@ set_target_properties(anomaly PROPERTIES PUBLIC_HEADER "${ANOMALY_PUBLIC_HEADERS
 # target_link_libraries(anomaly PRIVATE Boost::boost)
 
 # Test program
-#add_executable(anomaly_test test/main.cpp test/Interfaces.hpp test/catch.hpp)
-#target_link_libraries(anomaly_test anomaly)
-#add_test(anomaly_test anomaly_test -r junit -o junit.xml -s)
+add_executable(anomaly_test
+    test/test_main.cpp
+    test/matchers.hpp
+    test/matchers.cpp
+    test/lowess_test.cpp
+    #test/Interfaces.hpp
+    test/catch.hpp)
+target_link_libraries(anomaly_test anomaly)
+add_test(anomaly_test anomaly_test -r junit -o junit.xml -s)
 
+# TODO add src/main.cpp
 # Examples
 ## Example 1
-#add_library(anomaly_example1_extension SHARED
+#add_library(anomaly_example1 SHARED
 #    examples/example1/Extension.cpp
 #    examples/example1/Interface.hpp)
 #target_link_libraries(anomaly_example1_extension PRIVATE anomaly_headers)

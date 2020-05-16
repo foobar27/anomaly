@@ -1,5 +1,7 @@
 #include "whisper/model.hpp"
 
+#include <cassert>
+#include <cmath>
 #include <fstream>
 #include <vector>
 #include <sstream>
@@ -74,7 +76,20 @@ TimeSeries determineSeasonalComponent(const TimeSeries& input) {
     return output;
 }
 
+#include <eigen3/Eigen/Dense>
+
 int main() {
+    using namespace Eigen;
+    using namespace std;
+    VectorXd big(5);
+    big << 10, 11, 12, 13, 14;
+    auto segment = big.segment(1, 2);
+    segment[0]   = 100;
+    cout << segment.sum() << endl;
+    cout << big[1] << endl;
+}
+
+int main2() {
     ifstream is("/home/sebastien/percent.wsp", ifstream::binary);
     MetaData meta_data{};
     is >> meta_data;
