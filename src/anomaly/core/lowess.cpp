@@ -53,38 +53,30 @@ bool LowessAlgorithm::lowest(const Eigen::VectorXd& positions,
         } else if (positions[j] > position)
             break; // get out at first zero wt on right
     }
-    // TODO shift:
-    n_rt = j + 1 - 1; // rightmost pt (may be greater than nright because of ties)
+    n_rt = j; // rightmost pt (may be greater than nright because of ties)
     if (sumOfWeights <= 0.0)
         return false;
+    auto weights_seg   = weights.segment(n_left, n_rt - n_left);
+    auto input_seg     = input.segment(n_left, n_rt - n_left);
+    auto positions_seg = positions.segment(n_left, n_rt - n_left);
+
     // make sum of w(j) == 1
-    for (Index j = n_left; j < n_rt; ++j)
-        weights[j] /= sumOfWeights; // TODO(sw) simplify scalar multiplication
+    weights_seg /= sumOfWeights;
 
     // weighted least squares
     if (h > 0.0) { // use linear fit
-        double a = 0.0;
-        for (Index j = n_left; j < n_rt; ++j) // TODO(sw) simplify via dot product
-            a += weights[j] * positions[j]; // weighted center of x values
+        double a = weights_seg.dot(positions_seg); // weighted center of x values
         auto   b = position - a;
-        double c = 0.0;
-        for (Index j = n_left; j < n_rt; ++j) {
-            c += weights[j] * square(positions[j] - a); // TODO(sw) simplify dot product
-        }
-
+        double c = weights_seg.dot(((positions_seg.array() - a).square()).matrix());
         if (sqrt(c) > .001 * range) {
             // points are spread out enough to compute slope
             b /= c;
-            for (Index j = n_left; j < n_rt; ++j)
-                weights[j] = weights[j] * (1.0 + b * (positions[j] - a));
+            weights_seg.array() *= 1.0 + b * (positions_seg.array() - a);
         }
     }
 
     // Compute output
-    fittedValue = 0.0;
-    for (Index j = n_left; j < n_rt; ++j) {
-        fittedValue += weights[j] * input[j]; // TODO(sw) simplify dot product
-    }
+    fittedValue = weights_seg.dot(input_seg);
     return true;
 }
 
