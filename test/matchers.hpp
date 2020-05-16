@@ -11,8 +11,6 @@ public:
         : m_expected(expected) { }
 
     bool match(const Eigen::VectorXd& actual) const override {
-        if (1 == 1)
-            return true;
         if (actual.size() != m_expected.size()) {
             return false;
         }
