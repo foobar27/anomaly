@@ -38,52 +38,53 @@ bool LowessAlgorithm::lowest(const Eigen::VectorXd& positions,
     Index n_rt{};
     {
         Scalar a = 0.0; // sum of weights
-        Index  j = n_left; // The loop might terminate earlier, we need to remember the last loop position.
-        for (; j <= n; j = j + 1) { // compute weights (pick up all ties on right)
-            weights[j - 1] = 0.0;
-            auto r         = abs(positions[j - 1] - position);
+        Index  j = n_left - 1; // The loop might terminate earlier, we need to remember the last loop position.
+        for (; j < n; j++) { // compute weights (pick up all ties on right)
+            weights[j] = 0.0;
+            auto r     = abs(positions[j] - position);
             if (r <= h9) { // small enough for non-zero weight
                 if (r > h1)
-                    weights[j - 1] = triCube(r / h);
+                    weights[j] = triCube(r / h);
                 else
-                    weights[j - 1] = 1.0;
+                    weights[j] = 1.0;
                 if (use_rw)
-                    weights[j - 1] *= m_robustnessWeights[j - 1];
-                a += weights[j - 1];
-            } else if (positions[j - 1] > position)
+                    weights[j] *= m_robustnessWeights[j];
+                a += weights[j];
+            } else if (positions[j] > position)
                 break; // get out at first zero wt on right
         }
-        n_rt = j - 1; // rightmost pt (may be greater than nright because of ties)
+        // TODO shift:
+        n_rt = j + 1 - 1; // rightmost pt (may be greater than nright because of ties)
         if (a <= 0.0)
             return false;
         // make sum of w(j) == 1
-        for (Index j = n_left; j <= n_rt; ++j)
-            weights[j - 1] /= a; // TODO(sw) simplify scalar multiplication
+        for (Index j = n_left - 1; j < n_rt; ++j)
+            weights[j] /= a; // TODO(sw) simplify scalar multiplication
     }
 
     // weighted least squares
     if (h > 0.0) { // use linear fit
         double a = 0.0;
-        for (Index j = n_left; j <= n_rt; ++j) // TODO(sw) simplify via dot product
-            a += weights[j - 1] * positions[j - 1]; // weighted center of x values
+        for (Index j = n_left - 1; j < n_rt; ++j) // TODO(sw) simplify via dot product
+            a += weights[j] * positions[j]; // weighted center of x values
         auto   b = position - a;
         double c = 0.0;
-        for (Index j = n_left; j <= n_rt; ++j) {
-            c += weights[j - 1] * square(positions[j - 1] - a); // TODO(sw) simplify dot product
+        for (Index j = n_left - 1; j < n_rt; ++j) {
+            c += weights[j] * square(positions[j] - a); // TODO(sw) simplify dot product
         }
 
         if (sqrt(c) > .001 * range) {
             // points are spread out enough to compute slope
             b /= c;
-            for (Index j = n_left; j <= n_rt; ++j)
-                weights[j - 1] = weights[j - 1] * (1.0 + b * (positions[j - 1] - a));
+            for (Index j = n_left - 1; j < n_rt; ++j)
+                weights[j] = weights[j] * (1.0 + b * (positions[j] - a));
         }
     }
 
     // Compute output
     fittedValue = 0.0;
-    for (Index j = n_left; j <= n_rt; ++j) {
-        fittedValue += weights[j - 1] * input[j - 1]; // TODO(sw) simplify dot product
+    for (Index j = n_left - 1; j < n_rt; ++j) {
+        fittedValue += weights[j] * input[j]; // TODO(sw) simplify dot product
     }
     return true;
 }
