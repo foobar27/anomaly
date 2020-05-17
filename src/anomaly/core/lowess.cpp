@@ -145,9 +145,9 @@ void LowessAlgorithm::lowess(const Eigen::VectorXd& positions, const Eigen::Vect
 
         m_robustnessWeights = m_residuals.cwiseAbs();
         std::sort(m_robustnessWeights.data(), m_robustnessWeights.data() + m_robustnessWeights.size());
-        auto m1   = 1 + n / 2;
-        auto m2   = n - m1 + 1;
-        auto cmad = 3.0 * (m_robustnessWeights[m1 - 1] + m_robustnessWeights[m2 - 1]); // 6 median abs resid
+        auto m1   = n / 2;
+        auto m2   = n - m1;
+        auto cmad = 3.0 * (m_robustnessWeights[m1] + m_robustnessWeights[m2]); // 6 median abs resid
         auto c9   = 0.999 * cmad;
         auto c1   = 0.001 * cmad;
         for (Index i = 0; i < n; ++i) {
