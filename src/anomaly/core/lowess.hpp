@@ -11,7 +11,16 @@ struct LowessConfiguration {
     /*@param f */
 
     /**
-     * @brief m_ratio specifies the amount of smoothing
+     * @brief m_length specifies the amount of smoothing, in number of points
+     *
+     * Either m_length or m_ratio must be set.
+     */
+    Index m_length;
+
+    /**
+     * @brief m_ratio specifies the amount of smoothing, as a ratio of the number of points
+     *
+     * Either m_length or m_ratio must be set.
      *
      * Ratio is the fraction of points used to compute each fitted value.
      * As ratio increases the smoothed values become smoother.
@@ -169,7 +178,7 @@ public:
             m_output[0] = input[0];
             return;
         }
-        Index ns = std::clamp(config.m_ratio * n, 2.0, (double)n);
+        Index ns = std::clamp<Index>(config.m_length > 0 ? config.m_length : (Index)(config.m_ratio * n), 2, n);
 
         // robustness iterations
         for (Index iter = 1; iter <= config.m_numberOfSteps + 1; iter = iter + 1) {

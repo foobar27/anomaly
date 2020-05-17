@@ -10,7 +10,7 @@ auto smoothen(const Eigen::VectorXd& positions, const Eigen::VectorXd& input, do
     using namespace anomaly::core::lowess;
     auto                numberOfPoints = input.size();
     LowessAlgorithm     algo(numberOfPoints);
-    LowessConfiguration config{f, nSteps, delta};
+    LowessConfiguration config{0, f, nSteps, delta};
     algo.lowess(config, positions, input);
     return algo.output();
 }
