@@ -84,7 +84,6 @@ add_library(anomaly
     ${ANOMALY_PUBLIC_HEADERS}
     src/anomaly/core/timeseries.cpp
     src/anomaly/core/stl.cpp
-    src/anomaly/core/lowess.cpp
     src/anomaly/whisper/model.cpp
     # src/anomaly/main.cpp
     )
