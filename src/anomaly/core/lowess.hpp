@@ -101,7 +101,8 @@ private:
      *
      * Robustness weights can be employed in computing the fit.
      *
-     * @param positions abscissas of the points on the scatterplot; the values in X must be ordered from smallest to largest.
+     * @param positions abscissas of the points on the scatterplot; the values in X must be ordered from smallest to largest, strictly
+     * increasing.
      * @param input ordinates of the points on the scatterplot.
      * @param position value of the horizontal axis at which the smooth is computed.
      * @param fittedValue output parameter, fitted value at xs

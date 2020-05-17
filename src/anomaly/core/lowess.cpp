@@ -35,8 +35,7 @@ bool LowessAlgorithm::lowest(const Eigen::VectorXd& positions,
     auto h9    = 0.999 * h;
     auto h1    = 0.001 * h;
 
-    Index j = n_left; // The loop might terminate earlier, we need to remember the last loop position.
-    for (; j < n; j++) { // compute weights (pick up all ties on right)
+    for (Index j = n_left; j < n_right; j++) { // compute weights (pick up all ties on right)
         weights[j] = 0.0;
         auto r     = abs(positions[j] - position);
         if (r <= h9) { // small enough for non-zero weight
@@ -44,14 +43,13 @@ bool LowessAlgorithm::lowest(const Eigen::VectorXd& positions,
                 weights[j] = triCube(r / h);
             else
                 weights[j] = 1.0;
-        } else if (positions[j] > position)
-            break; // get out at first zero wt on right
+        }
     }
     // rightmost pt (may be greater than n_right because of ties)
-    auto weights_seg            = weights.segment(n_left, j - n_left);
-    auto robustness_weights_seg = m_robustnessWeights.segment(n_left, j - n_left);
-    auto input_seg              = input.segment(n_left, j - n_left);
-    auto positions_seg          = positions.segment(n_left, j - n_left);
+    auto weights_seg            = weights.segment(n_left, n_right - n_left);
+    auto robustness_weights_seg = m_robustnessWeights.segment(n_left, n_right - n_left);
+    auto input_seg              = input.segment(n_left, n_right - n_left);
+    auto positions_seg          = positions.segment(n_left, n_right - n_left);
 
     if (use_rw)
         weights_seg.array() *= robustness_weights_seg.array();
