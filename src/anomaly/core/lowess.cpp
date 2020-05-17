@@ -121,9 +121,9 @@ void LowessAlgorithm::lowess(const Eigen::VectorXd& positions, const Eigen::Vect
 
             if (last < i - 1) { // skipped points -- interpolate
                 auto denom = positions[i - 1] - positions[last - 1]; // non-zero - proof?
-                for (Index j = last + 1; j < i; j++) {
-                    auto alpha      = (positions[j - 1] - positions[last - 1]) / denom;
-                    m_output[j - 1] = alpha * m_output[i - 1] + (1.0 - alpha) * m_output[last - 1];
+                for (Index j = last; j < i - 1; j++) {
+                    auto alpha  = (positions[j] - positions[last - 1]) / denom;
+                    m_output[j] = alpha * m_output[i - 1] + (1.0 - alpha) * m_output[last - 1];
                 }
             }
             last     = i; // last point actually estimated
