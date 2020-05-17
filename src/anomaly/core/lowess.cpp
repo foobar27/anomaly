@@ -83,20 +83,19 @@ static void convertResidualsToRobustnessWeights(const Eigen::VectorXd& residuals
     auto n            = residuals.size();
     robustnessWeights = residuals.cwiseAbs();
     std::sort(robustnessWeights.data(), robustnessWeights.data() + robustnessWeights.size());
-    auto m1   = n / 2;
-    auto m2   = n - m1;
-    auto cmad = 3.0 * (robustnessWeights[m1] + robustnessWeights[m2]); // 6 median abs resid
-    auto c9   = 0.999 * cmad;
-    auto c1   = 0.001 * cmad;
-    for (Index i = 0; i < n; ++i) {
-        auto r = abs(residuals[i]);
+    auto m1           = n / 2;
+    auto m2           = n - m1;
+    auto cmad         = 3.0 * (robustnessWeights[m1] + robustnessWeights[m2]); // 6 median abs resid
+    auto c9           = 0.999 * cmad;
+    auto c1           = 0.001 * cmad;
+    robustnessWeights = residuals.cwiseAbs().unaryExpr([c1, c9, cmad](Scalar r) {
         if (r <= c1)
-            robustnessWeights[i] = 1.0; // near 0, avoid underflow
+            return 1.0; // near 0, avoid underflow
         else if (r > c9)
-            robustnessWeights[i] = 0.0; // near 1, avoid underflow
+            return 0.0; // near 1, avoid underflow
         else
-            robustnessWeights[i] = biSquare(r / cmad);
-    }
+            return biSquare(r / cmad);
+    });
 }
 
 // Interpolates the given segment from the first and last values (which are fixed).
