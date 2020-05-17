@@ -101,6 +101,20 @@ static void convertResidualsToRobustnessWeights(const Eigen::VectorXd& residuals
     }
 }
 
+// Interpolates the given segment from the first and last values (which are fixed).
+static void interpolate(Eigen::VectorXd::ConstSegmentReturnType positions, Eigen::VectorXd::SegmentReturnType values) {
+    assert(positions.size() == values.size());
+    assert(positions.size() > 1);
+    auto n           = positions.size();
+    auto denom       = positions[n - 1] - positions[0];
+    auto left_value  = values[0];
+    auto right_value = values[n - 1];
+    for (Index i = 1; i < n - 1; ++i) {
+        auto alpha = (positions[i] - positions[0]) / denom;
+        values[i]  = alpha * right_value + (1.0 - alpha) * left_value;
+    }
+}
+
 void LowessAlgorithm::lowess(const Eigen::VectorXd& positions, const Eigen::VectorXd& input, const double f, const Index nSteps, const double delta) {
     auto n = m_numberOfPoints;
     assert(positions.size() == n);
@@ -140,11 +154,7 @@ void LowessAlgorithm::lowess(const Eigen::VectorXd& positions, const Eigen::Vect
             // all weights zero - copy over value (all robustnessWeights==0)
 
             if (last + 1 < i) { // skipped points -- interpolate
-                auto denom = positions[i] - positions[last]; // non-zero - proof?
-                for (Index j = last + 1; j < i; j++) {
-                    auto alpha  = (positions[j] - positions[last]) / denom;
-                    m_output[j] = alpha * m_output[i] + (1.0 - alpha) * m_output[last];
-                }
+                interpolate(positions.segment(last, i - last + 1), m_output.segment(last, i - last + 1));
             }
             last     = i; // last point actually estimated
             auto cut = positions[last] + delta; // x coord of close points
