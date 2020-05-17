@@ -78,7 +78,8 @@ constexpr T triCube(const T x) {
     return cube(1.0 - cube(x));
 }
 
-static void convertResidualsToRobustnessWeights(const Eigen::VectorXd& residuals, Eigen::VectorXd& robustnessWeights) {
+template <class Derived>
+static void convertResidualsToRobustnessWeights(const Eigen::MatrixBase<Derived>& residuals, Eigen::VectorXd& robustnessWeights) {
     using Scalar      = Eigen::VectorXd::Scalar;
     using Index       = Eigen::Index;
     auto n            = residuals.size();
@@ -100,9 +101,9 @@ static void convertResidualsToRobustnessWeights(const Eigen::VectorXd& residuals
 }
 
 // Interpolates the given segment from the first and last values (which are fixed).
-static void interpolate(Eigen::VectorXd::ConstSegmentReturnType positions, Eigen::VectorXd::SegmentReturnType values) {
-    using Scalar = Eigen::VectorXd::Scalar;
-    using Index  = Eigen::Index;
+template <class DerivedPositions, class DerivedValues>
+static void interpolate(const Eigen::VectorBlock<DerivedPositions> positions, Eigen::VectorBlock<DerivedValues> values) {
+    using Index = Eigen::Index;
     assert(positions.size() == values.size());
     assert(positions.size() > 1);
     auto n           = positions.size();
@@ -154,7 +155,10 @@ public:
      * Finally, if the w[j] are all zero for the smooth at positions[I], the  fitted
      *        value is taken to be Y(I).
      */
-    void lowess(const LowessConfiguration& config, const Eigen::VectorXd& positions, const Eigen::VectorXd& input) {
+    template <class DerivedPositions, class DerivedValues>
+    void lowess(const LowessConfiguration&                 config,
+                const Eigen::MatrixBase<DerivedPositions>& positions,
+                const Eigen::MatrixBase<DerivedValues>&    input) {
         auto n = m_numberOfPoints;
         assert(positions.size() == n);
         assert(input.size() == n);
@@ -262,14 +266,15 @@ private:
      * Two cases where the program reverts to locally weighted regression of degree 0 are described in the documentation
      * for lowess.
      */
-    bool lowest(const Eigen::VectorXd& positions,
-                const Eigen::VectorXd& input,
-                const Scalar           position,
-                Scalar&                fittedValue,
-                const Index            n_left,
-                const Index            n_right,
-                Eigen::VectorXd&       weights,
-                const bool             use_rw) {
+    template <class DerivedPositions, class DerivedValues>
+    bool lowest(const Eigen::MatrixBase<DerivedPositions>& positions,
+                const Eigen::MatrixBase<DerivedValues>&    input,
+                const Scalar                               position,
+                Scalar&                                    fittedValue,
+                const Index                                n_left,
+                const Index                                n_right,
+                Eigen::VectorXd&                           weights,
+                const bool                                 use_rw) {
         auto n     = positions.size();
         auto range = positions[n - 1] - positions[0];
         auto h     = std::max(position - positions[n_left], positions[n_right - 1] - position);

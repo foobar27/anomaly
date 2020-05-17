@@ -6,6 +6,9 @@
 //#include <boost/array.hpp>
 //#include <eigen3/Eigen/Dense>
 
+// using Scalar = Eigen::VectorXd::Scalar;
+// using Index  = Eigen::Index;
+
 // namespace anomaly::core::stl {
 
 // void Smoother::repair() {
@@ -35,7 +38,7 @@
 //    return x * x * x;
 //}
 
-// inline double biCube(double x) {
+// inline double triCube(double x) {
 //    return cube(1.0 - cube(x));
 //}
 
@@ -45,161 +48,32 @@
 //    m_config.repair(); // TODO ensure via contract
 //}
 
-// inline static bool swapIfOutOfOrder(double& x, double& y) {
-//    if (y > x) {
-//        std::swap(x, y);
-//        return true;
-//    }
-//    return false;
-//}
+//// TODO(sw) reuse the corresponding method from lowess.cpp
+//// (the difference is the this one also computes the residuals)
+// void computeRobustnessWeights(const Eigen::VectorXd& input, const Eigen::VectorXd& fit, Eigen::VectorXd& robustnessWeights) {
+//    const auto n = input.size();
 
-// inline void sortReferences(double& x, double& y, double& z) {
-//    swapIfOutOfOrder(x, y);
-//    if (swapIfOutOfOrder(y, z)) {
-//        swapIfOutOfOrder(x, y);
-//    }
-//}
+//    robustnessWeights = (input - fit).cwiseAbs();
 
-// void psort(Eigen::VectorXd& a, std::vector<size_t>& ind) {
-//    // TODO(sw) Fix array indices
-//    auto n  = a.size();
-//    auto ni = ind.size();
-
-//    boost::array<int, 16> indu, indl, iu, il;
-
-//    assert(n >= 0 && ni >= 0);
-//    if (n < 2 | ni == 0)
-//        return;
-//    int jl  = 1;
-//    int ju  = ni;
-//    indl[1] = 1;
-//    indu[1] = ni;
-//    // arrays indl, indu keep account of the portion of ind related to the
-//    // current segment of data being ordered.
-//    int i = 1;
-//    int j = n;
-//    int m = 1;
-//    while (true) {
-//        if (i < j)
-//            goto label10;
-//    loop2:
-//        while (true) {
-//            m--;
-//            if (m == 0)
-//                return;
-//            i  = il[m];
-//            j  = iu[m];
-//            jl = indl[m];
-//            ju = indu[m];
-//            if (jl <= ju) {
-//                while (j - i > 10) {
-//                label10:
-//                    int k   = i;
-//                    int mid = (i + j) / 2;
-//                    int l   = j;
-//                    sortReferences(a[i], a[mid], a[j]);
-//                    double median = a[mid];
-//                    // TODO use standard library partitioning?
-//                    while (true) {
-//                        l = l - 1;
-//                        if (a[l] <= median) {
-//                            double tt = a[l];
-//                            do {
-//                                //  split the data into a[i..l] < t, a[k..j] > t
-//                                k++;
-//                            } while (a[k] < median);
-//                            if (k > l)
-//                                break;
-//                            a[l] = a[k];
-//                            a[k] = tt;
-//                        }
-//                    }
-//                    indl[m] = jl;
-//                    indu[m] = ju;
-//                    int p   = m;
-//                    m++;
-//                    //  split the larger of the segments
-//                    if (l - i <= j - k) {
-//                        il[p] = k;
-//                        iu[p] = j;
-//                        j     = l;
-//                        while (true) {
-//                            if (jl > ju)
-//                                goto loop2;
-//                            if (ind[ju] <= j)
-//                                break;
-//                            ju = ju - 1;
-//                        }
-//                        indl[p] = ju + 1;
-//                    } else {
-//                        il[p] = i;
-//                        iu[p] = l;
-//                        i     = k;
-//                        while (true) {
-//                            //  skip all segments not corresponding to an entry in ind
-//                            if (jl > ju)
-//                                goto loop2;
-//                            if (ind[jl] >= i)
-//                                break;
-//                            jl = jl + 1;
-//                        }
-//                        indu[p] = jl - 1;
-//                    }
-//                }
-
-//                if (i == 1)
-//                    break;
-//                i = i - 1;
-//                while (true) {
-//                    i++;
-//                    if (i == j)
-//                        break;
-//                    // TODO looks like swapping again
-//                    double t = a[i + 1];
-//                    if (a[i] > t) {
-//                        int k = i;
-//                        do {
-//                            a[k + 1] = a[k];
-//                            k--;
-//                        } while (t < a[k]);
-//                        a[k + 1] = t;
-//                    }
-//                }
-//            }
-//        }
-//    }
-//}
-
-// void rwts(const Eigen::VectorXd& y, const Eigen::VectorXd& fit, Eigen::VectorXd& rw) {
-
-//    // integer mid(2), n
-//    // real rw(n), cmad, c9, c1, r
-
-//    const auto n = y.size();
-//    for (size_t i = 1; i <= n; ++i)
-//        rw[i - 2] = abs(y[i - 1] - fit[i - 1]);
-
-//    std::vector<size_t> mid(2);
-//    mid[0] = n / 2 + 1;
-//    mid[1] = n - mid[0] + 1;
-//    psort(rw, mid);
-//    auto cmad = 3.0 * (rw(mid[0]) + rw(mid[1])); // 6 * median abs resid
-//    auto c9   = 0.999 * cmad;
-//    auto c1   = 0.001 * cmad;
-//    for (size_t i = 1; i <= n; ++i) {
-//        double r = abs(y[i - 1] - fit[i - 1]);
+//    auto m0 = n / 2 + 1;
+//    auto m1 = n - m0 + 1;
+//    std::sort(robustnessWeights.data(), robustnessWeights.data() + robustnessWeights.size());
+//    auto cmad         = 3.0 * (robustnessWeights(m0) + robustnessWeights(m1)); // 6 * median abs resid
+//    auto c9           = 0.999 * cmad;
+//    auto c1           = 0.001 * cmad;
+//    robustnessWeights = (input - fit).cwiseAbs().unaryExpr([c1, c9, cmad](double r) {
 //        if (r <= c1)
-//            rw[i - 1] = 1.0;
+//            return 1.0;
 //        else if (r <= c9)
-//            rw[i - 1] = biSquare(r / cmad);
+//            return biSquare(r / cmad);
 //        else
-//            rw[i - 1] = 0;
-//    }
+//            return 0.0;
+//    });
 //}
 
 // void StlAlgorithm::stl() {
 //    auto            n = m_input.size();
-//    Eigen::VectorXd rw(n);
+//    Eigen::VectorXd robustnessWeights(n);
 //    Eigen::VectorXd season(n);
 //    Eigen::VectorXd trend(n);
 //    Eigen::VectorXd work1;
@@ -207,23 +81,21 @@
 //    Eigen::VectorXd work3;
 //    Eigen::VectorXd work4;
 //    Eigen::VectorXd work5;
-//    bool            use_rw = false;
+//    bool            use_rw{false};
 
 //    size_t k = 0;
 //    while (true) {
-//        innerLoop(use_rw, rw, season, trend, work1, work2, work3, work4, work5);
+//        innerLoop(use_rw, robustnessWeights, season, trend, work1, work2, work3, work4, work5);
 //        k++;
 //        if (k > m_config.m_nIterationsOuterLoop) {
 //            break;
 //        }
-//        for (size_t i = 0; i < n; ++i) { // TODO(sw) is there a more elegant way?
-//            work1[i] = trend[i] + season[i];
-//        }
-//        rwts(m_input, work1, rw);
+//        work1 = trend + season;
+//        computeRobustnessWeights(m_input, work1, robustnessWeights);
 //        use_rw = true;
 //    }
 //    if (m_config.m_nIterationsOuterLoop <= 0) {
-//        rw.setOnes();
+//        robustnessWeights.setOnes();
 //    }
 //    // TODO where are the output components?
 //}
@@ -255,7 +127,7 @@
 //            if (r <= h1)
 //                w[j - 1] = 1.0;
 //            else
-//                w[j - 1] = biCube(r / h);
+//                w[j - 1] = triCube(r / h);
 //            if (use_rw)
 //                w[j - 1] = rw[j - 1] * w[j - 1];
 //            a += w[j - 1];
