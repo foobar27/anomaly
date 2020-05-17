@@ -2,6 +2,9 @@
 
 #include "catch.hpp"
 #include "matchers.hpp"
+#include <cmath>
+#include <iostream>
+#include <fstream>
 
 auto smoothen(const Eigen::VectorXd& positions, const Eigen::VectorXd& input, double f, int nSteps, double delta) {
     using namespace anomaly::core::lowess;
@@ -11,7 +14,7 @@ auto smoothen(const Eigen::VectorXd& positions, const Eigen::VectorXd& input, do
     return algo.output();
 }
 
-TEST_CASE("Dummy test") {
+TEST_CASE("Loess - Sample Data") {
     int numberOfPoints = 20;
 
     Eigen::VectorXd positions(numberOfPoints);
@@ -55,4 +58,32 @@ TEST_CASE("Dummy test") {
         auto actual = smoothen(positions, input, f, nSteps, delta);
         REQUIRE_THAT(actual, VectorXdIsEqualTo(expected));
     }
+}
+
+TEST_CASE("Loess - Random Data") {
+    using namespace std;
+
+    int    points_per_period = 2000;
+    int    periods           = 10;
+    double y_scale           = 10.0;
+    int    n                 = periods * points_per_period;
+
+    random_device r;
+    mt19937       gen(r());
+
+    normal_distribution<float> d(0.0, 0.1 * y_scale);
+
+    auto            positions = Eigen::VectorXd::LinSpaced(n, 1000.0, 2000.0);
+    Eigen::VectorXd input(n);
+    for (int i = 0; i < n; ++i) {
+        input[i] = y_scale * sin(2.0 * M_PI * i / points_per_period) + d(gen);
+    }
+    auto output = smoothen(positions, input, 1.0 / periods / 4, 0, 10.0);
+
+    ofstream f("/tmp/sinus.tsv");
+    f << "x\tinput\toutput" << endl;
+    for (int i = 0; i < n; ++i) {
+        f << positions[i] << "\t" << input[i] << "\t" << output[i] << endl;
+    }
+    // TODO(sw) verify close to sinus curve
 }
