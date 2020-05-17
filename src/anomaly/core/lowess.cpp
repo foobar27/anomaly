@@ -146,7 +146,7 @@ void LowessAlgorithm::lowess(const Eigen::VectorXd& positions, const Eigen::Vect
 
             // fitted value at x[i]
             if (!lowest(positions, input, positions[i], m_output[i], n_left, n_right, m_residuals, iter > 1))
-                m_output[i] = input[i + 1];
+                m_output[i] = input[i];
 
             // all weights zero - copy over value (all robustnessWeights==0)
 
