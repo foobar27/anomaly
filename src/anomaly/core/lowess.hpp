@@ -107,7 +107,7 @@ private:
      * @param fittedValue output parameter, fitted value at xs
      * @param n_left index of the first point which should be considered in computing the fitted value.
      * @param n_right index of the last point which should be considered in computing the fitted value.
-     * @param weight Weight for each input value used in the expression of ys, which is the sum from I = n_left to n_right  of
+     * @param weights Weight for each input value used in the expression of ys, which is the sum from I = n_left to n_right  of
      * w[I]*input[I]. Only defined at locations from n_left to n_right.
      * @param use_rw If true, a robust fit is carried out using the weights in m_robutsnessWeights, else the robustness weights are ignored.
      * @return If the weights for the smooth are all 0, the fitted value, ys, is not computed and false is returned.
@@ -125,7 +125,7 @@ private:
                 Scalar&                fittedValue,
                 const Index            n_left,
                 const Index            n_right,
-                Eigen::VectorXd&       output,
+                Eigen::VectorXd&       weights,
                 const bool             use_rw);
 
     Index           m_numberOfPoints;

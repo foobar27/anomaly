@@ -66,7 +66,7 @@ bool LowessAlgorithm::lowest(const Eigen::VectorXd& positions,
     if (h > 0.0) { // use linear fit
         double a = weights_seg.dot(positions_seg); // weighted center of x values
         auto   b = position - a;
-        double c = weights_seg.dot(((positions_seg.array() - a).square()).matrix());
+        double c = weights_seg.dot((positions_seg.array() - a).square().matrix());
         if (sqrt(c) > .001 * range) {
             // points are spread out enough to compute slope
             b /= c;
