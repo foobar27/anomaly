@@ -125,7 +125,7 @@ void LowessAlgorithm::lowess(const Eigen::VectorXd& positions, const Eigen::Vect
                 // move n_left, n_right to right if radius decreases
                 auto d1 = positions[i - 1] - positions[n_left];
                 auto d2 = positions[n_right] - positions[i - 1];
-                // if d1<=d2 with x(nright+1)==x(nright), lowest fixes
+                // if d1<=d2 with position[nright]==position[nright-1], lowest fixes
                 if (d1 <= d2)
                     break;
                 // radius will not decrease by move right
@@ -133,11 +133,11 @@ void LowessAlgorithm::lowess(const Eigen::VectorXd& positions, const Eigen::Vect
                 n_right++;
             }
 
-            // fitted value at x(i)
+            // fitted value at x[i-1]
             if (!lowest(positions, input, positions[i - 1], m_output[i - 1], n_left, n_right, m_residuals, iter > 1))
                 m_output[i - 1] = input[i];
 
-            // all weights zero - copy over value (all rw==0)
+            // all weights zero - copy over value (all robustnessWeights==0)
 
             if (last < i - 1) { // skipped points -- interpolate
                 auto denom = positions[i - 1] - positions[last - 1]; // non-zero - proof?
