@@ -123,7 +123,7 @@ void LowessAlgorithm::lowess(const Eigen::VectorXd& positions, const Eigen::Vect
         m_output[0] = input[0];
         return;
     }
-    Index ns = std::max(std::min(Index(f * n), n), Index(2)); // at least two, at most n points
+    Index ns = std::clamp(f * n, 2.0, (double)n);
 
     // robustness iterations
     for (Index iter = 1; iter <= nSteps + 1; iter = iter + 1) {
