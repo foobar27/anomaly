@@ -35,8 +35,6 @@ bool LowessAlgorithm::lowest(const Eigen::VectorXd& positions,
     auto h9    = 0.999 * h;
     auto h1    = 0.001 * h;
 
-    Index n_rt{};
-
     Index j = n_left; // The loop might terminate earlier, we need to remember the last loop position.
     for (; j < n; j++) { // compute weights (pick up all ties on right)
         weights[j] = 0.0;
@@ -50,19 +48,19 @@ bool LowessAlgorithm::lowest(const Eigen::VectorXd& positions,
             break; // get out at first zero wt on right
     }
     // rightmost pt (may be greater than n_right because of ties)
-    auto weights_seg           = weights.segment(n_left, j - n_left);
-    auto robustnessWeights_seg = m_robustnessWeights.segment(n_left, j - n_left);
-    auto input_seg             = input.segment(n_left, j - n_left);
-    auto positions_seg         = positions.segment(n_left, j - n_left);
+    auto weights_seg            = weights.segment(n_left, j - n_left);
+    auto robustness_weights_seg = m_robustnessWeights.segment(n_left, j - n_left);
+    auto input_seg              = input.segment(n_left, j - n_left);
+    auto positions_seg          = positions.segment(n_left, j - n_left);
 
     if (use_rw)
-        weights_seg.array() *= robustnessWeights_seg.array();
+        weights_seg.array() *= robustness_weights_seg.array();
 
     // make sum of w(j) == 1 (if possible)
-    auto sumOfWeights = weights_seg.sum();
-    if (sumOfWeights <= 0.0)
+    auto sum_of_weights = weights_seg.sum();
+    if (sum_of_weights <= 0.0)
         return false;
-    weights_seg /= sumOfWeights;
+    weights_seg /= sum_of_weights;
 
     // weighted least squares
     if (h > 0.0) { // use linear fit
