@@ -119,12 +119,12 @@ void LowessAlgorithm::lowess(const Eigen::VectorXd& positions, const Eigen::Vect
         Index n_left  = 0;
         Index n_right = ns;
         Index last    = -1; // index of prev estimated point
-        Index i       = 1; // index of current point
+        Index i       = 0; // index of current point
         do {
             while (n_right < n) {
                 // move n_left, n_right to right if radius decreases
-                auto d1 = positions[i - 1] - positions[n_left];
-                auto d2 = positions[n_right] - positions[i - 1];
+                auto d1 = positions[i] - positions[n_left];
+                auto d2 = positions[n_right] - positions[i];
                 // if d1<=d2 with position[nright]==position[nright-1], lowest fixes
                 if (d1 <= d2)
                     break;
@@ -133,30 +133,30 @@ void LowessAlgorithm::lowess(const Eigen::VectorXd& positions, const Eigen::Vect
                 n_right++;
             }
 
-            // fitted value at x[i-1]
-            if (!lowest(positions, input, positions[i - 1], m_output[i - 1], n_left, n_right, m_residuals, iter > 1))
-                m_output[i - 1] = input[i];
+            // fitted value at x[i]
+            if (!lowest(positions, input, positions[i], m_output[i], n_left, n_right, m_residuals, iter > 1))
+                m_output[i] = input[i + 1];
 
             // all weights zero - copy over value (all robustnessWeights==0)
 
-            if (last + 1 < i - 1) { // skipped points -- interpolate
-                auto denom = positions[i - 1] - positions[last]; // non-zero - proof?
-                for (Index j = last + 1; j < i - 1; j++) {
+            if (last + 1 < i) { // skipped points -- interpolate
+                auto denom = positions[i] - positions[last]; // non-zero - proof?
+                for (Index j = last + 1; j < i; j++) {
                     auto alpha  = (positions[j] - positions[last]) / denom;
-                    m_output[j] = alpha * m_output[i - 1] + (1.0 - alpha) * m_output[last];
+                    m_output[j] = alpha * m_output[i] + (1.0 - alpha) * m_output[last];
                 }
             }
-            last     = i - 1; // last point actually estimated
+            last     = i; // last point actually estimated
             auto cut = positions[last] + delta; // x coord of close points
-            for (i = last + 2; i <= n; i = i + 1) { // find close points
-                if (positions[i - 1] > cut)
+            for (i = last + 1; i < n; i++) { // find close points
+                if (positions[i] > cut)
                     break; // i one beyond last pt within cut
-                if (positions[i - 1] == positions[last]) { // exact match in x
-                    m_output[i - 1] = m_output[last];
-                    last            = i - 1;
+                if (positions[i] == positions[last]) { // exact match in x
+                    m_output[i] = m_output[last];
+                    last        = i;
                 }
             }
-            i = std::max(last + 2, i - 1);
+            i = std::max(last + 1, i - 1);
             // back 1 point so interpolation within delta, but always go forward
         } while (last + 1 < n);
         m_residuals = input - m_output;
