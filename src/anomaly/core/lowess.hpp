@@ -4,37 +4,34 @@
 
 namespace anomaly::core::lowess {
 
-class LowessAlgorithm {
+struct LowessConfiguration {
     using Scalar = Eigen::VectorXd::Scalar;
     using Index  = Eigen::Index;
 
-public:
-    LowessAlgorithm(Index numberOfPoints)
-        : m_numberOfPoints(numberOfPoints)
-        , m_output(numberOfPoints)
-        , m_robustnessWeights(numberOfPoints)
-        , m_residuals(numberOfPoints) { }
+    /*@param f */
 
     /**
-     * @brief lowess computess the smooth of a scatterplot of input against positions using robust locally weighted regression.
+     * @brief m_ratio specifies the amount of smoothing
      *
-     * Fitted values, m_ouptut, are computed at each of the values of the horizontal axis in X.
-     *
-     * @param positions abscissas of the points on the scatterplot; the values must be ordered from smallest to largest.
-     * @param input ordinates of the points on the scatterplot
-     * @param f specifies the amount of smoothing; f is the fraction of points used to compute each fitted value; as f increases the
-     * smoothed values become smoother; choosing f in the range 0.2 to 0.8 usually results in a good fit; if you have no idea which value to
-     * use, try f=0.5
-     * @param nSteps the number of iterations in the robust fit; if nSteps=0, the nonrobust fit is returned; setting nSteps equal to 2
+     * Ratio is the fraction of points used to compute each fitted value.
+     * As ratio increases the smoothed values become smoother.
+     * Choosing ratio in the range 0.2 to 0.8 usually results in a good fit.
+     * If you have no idea which value to use, try ratio=0.5
+     */
+    Scalar m_ratio;
+
+    /* @param nSteps the number of iterations in the robust fit; if nSteps=0, the nonrobust fit is returned; setting nSteps equal to 2
      * should serve most purposes.
-     * @param delta nonnegative parameter which may be used to save computations; if the number of points is less than 100, set delta equal
-     * to 0.0, else you should find out how delta works by reading the [additional instructions](#additionalInstructions) section.
+     * */
+    Index m_numberOfSteps;
+    /*
+     * @brief nonnegative parameter which may be used to save computations
      *
-     * Additional instructions    {#additionalInstructions}
-     * =======================
+     * If the number of points is less than 100, set delta equal to 0.0.
      *
-     * delta can be used to save computations. Very roughly the algorithm is this:
-     * on the initial fit and on each of the nSteps iterations locally weighted regression fitted values
+     * Very roughly the algorithm is this:
+     *
+     * On the initial fit and on each of the nSteps iterations locally weighted regression fitted values
      * are computed at points in X which are spaced, roughly, delta apart;
      * then the fitted values at the remaining points are computed using linear interpolation.
      *
@@ -54,6 +51,30 @@ public:
      *
      * If DELTA = Range(positions)/k then, if the values in X were uniformly scattered over the range, the full l.w.r. computation would be
      * carried out at approximately k points. Taking k to be 50 often works well.
+
+     */
+    Scalar m_delta;
+};
+
+class LowessAlgorithm {
+    using Scalar = Eigen::VectorXd::Scalar;
+    using Index  = Eigen::Index;
+
+public:
+    LowessAlgorithm(Index numberOfPoints)
+        : m_numberOfPoints(numberOfPoints)
+        , m_output(numberOfPoints)
+        , m_robustnessWeights(numberOfPoints)
+        , m_residuals(numberOfPoints) { }
+
+    /**
+     * @brief lowess computess the smooth of a scatterplot of input against positions using robust locally weighted regression.
+     *
+     * Fitted values, m_ouptut, are computed at each of the values of the horizontal axis in X.
+     *
+     * @param config some configuration parameters for the algorithm
+     * @param positions abscissas of the points on the scatterplot; the values must be ordered from smallest to largest.
+     * @param input ordinates of the points on the scatterplot
      *
      * Method
      * ======
@@ -72,7 +93,7 @@ public:
      * Finally, if the w[j] are all zero for the smooth at positions[I], the  fitted
      *        value is taken to be Y(I).
      */
-    void lowess(const Eigen::VectorXd& positions, const Eigen::VectorXd& input, const Scalar f, const Index nSteps, const Scalar delta);
+    void lowess(const LowessConfiguration& config, const Eigen::VectorXd& positions, const Eigen::VectorXd& input);
 
     const Eigen::VectorXd& output() const {
         return m_output;

@@ -8,9 +8,10 @@
 
 auto smoothen(const Eigen::VectorXd& positions, const Eigen::VectorXd& input, double f, int nSteps, double delta) {
     using namespace anomaly::core::lowess;
-    auto            numberOfPoints = input.size();
-    LowessAlgorithm algo(numberOfPoints);
-    algo.lowess(positions, input, f, nSteps, delta);
+    auto                numberOfPoints = input.size();
+    LowessAlgorithm     algo(numberOfPoints);
+    LowessConfiguration config{f, nSteps, delta};
+    algo.lowess(config, positions, input);
     return algo.output();
 }
 
@@ -18,7 +19,7 @@ TEST_CASE("Loess - Sample Data") {
     int numberOfPoints = 20;
 
     Eigen::VectorXd positions(numberOfPoints);
-    positions << 1, 2, 3, 4, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 8, 10, 12, 14, 50;
+    positions << 1, 2, 3, 4, 5, 6, 6.01, 6.02, 6.03, 6.04, 6.05, 6.06, 6.07, 6.08, 6.09, 8, 10, 12, 14, 50;
 
     Eigen::VectorXd input(numberOfPoints);
     input << 18, 2, 15, 6, 10, 4, 16, 11, 7, 3, 14, 17, 20, 12, 9, 13, 1, 8, 5, 19;
@@ -28,8 +29,8 @@ TEST_CASE("Loess - Sample Data") {
         int             nSteps = 0;
         double          delta  = 0.0;
         Eigen::VectorXd expected(numberOfPoints);
-        expected << 13.659, 11.145, 8.701, 9.722, 10.000, 11.300, 11.300, 11.300, 11.300, 11.300, 11.300, 11.300, 11.300, 11.300, 11.300,
-            13.000, 6.440, 5.596, 5.456, 18.998;
+        expected << 13.6588, 11.1446, 8.70117, 9.72204, 9.99823, 9.93375, 10.1563, 11.2863, 7, 7.29466, 11.7095, 17, 16.8506, 13.9803,
+            13.1805, 12.9996, 6.37724, 5.5777, 5.5004, 18.9982;
 
         auto actual = smoothen(positions, input, f, nSteps, delta);
         REQUIRE_THAT(actual, VectorXdIsEqualTo(expected));
@@ -40,8 +41,8 @@ TEST_CASE("Loess - Sample Data") {
         int             nSteps = 0;
         double          delta  = 3.0;
         Eigen::VectorXd expected(numberOfPoints);
-        expected << 13.659, 12.347, 11.034, 9.722, 10.511, 11.300, 11.300, 11.300, 11.300, 11.300, 11.300, 11.300, 11.300, 11.300, 11.300,
-            13.000, 6.440, 5.596, 5.456, 18.998;
+        expected << 13.6588, 12.3466, 11.0343, 9.72204, 11.3768, 13.0316, 13.0481, 13.0647, 13.0812, 13.0978, 13.1143, 13.1309, 13.1474,
+            13.164, 13.1805, 12.9996, 6.37724, 5.5777, 5.5004, 18.9982;
 
         auto actual = smoothen(positions, input, f, nSteps, delta);
         REQUIRE_THAT(actual, VectorXdIsEqualTo(expected));
@@ -52,8 +53,8 @@ TEST_CASE("Loess - Sample Data") {
         int             nSteps = 2;
         double          delta  = 0.0;
         Eigen::VectorXd expected(numberOfPoints);
-        expected << 14.811, 12.115, 8.984, 9.676, 10.000, 11.346, 11.346, 11.346, 11.346, 11.346, 11.346, 11.346, 11.346, 11.346, 11.346,
-            13.000, 6.734, 5.744, 5.415, 18.998;
+        expected << 15.4612, 12.701, 9.30607, 9.65977, 9.99848, 9.9603, 10.1451, 11.0175, 7.13044, 7.45926, 11.9717, 16.9703, 16.804,
+            14.0431, 13.2505, 12.9997, 6.80149, 5.78867, 5.44033, 18.9981;
 
         auto actual = smoothen(positions, input, f, nSteps, delta);
         REQUIRE_THAT(actual, VectorXdIsEqualTo(expected));

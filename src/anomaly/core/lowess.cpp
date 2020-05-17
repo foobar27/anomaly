@@ -110,7 +110,7 @@ static void interpolate(Eigen::VectorXd::ConstSegmentReturnType positions, Eigen
     }
 }
 
-void LowessAlgorithm::lowess(const Eigen::VectorXd& positions, const Eigen::VectorXd& input, const double f, const Index nSteps, const double delta) {
+void LowessAlgorithm::lowess(const LowessConfiguration& config, const Eigen::VectorXd& positions, const Eigen::VectorXd& input) {
     auto n = m_numberOfPoints;
     assert(positions.size() == n);
     assert(input.size() == n);
@@ -121,10 +121,10 @@ void LowessAlgorithm::lowess(const Eigen::VectorXd& positions, const Eigen::Vect
         m_output[0] = input[0];
         return;
     }
-    Index ns = std::clamp(f * n, 2.0, (double)n);
+    Index ns = std::clamp(config.m_ratio * n, 2.0, (double)n);
 
     // robustness iterations
-    for (Index iter = 1; iter <= nSteps + 1; iter = iter + 1) {
+    for (Index iter = 1; iter <= config.m_numberOfSteps + 1; iter = iter + 1) {
         Index n_left  = 0;
         Index n_right = ns;
         Index last    = -1; // index of prev estimated point
@@ -152,7 +152,7 @@ void LowessAlgorithm::lowess(const Eigen::VectorXd& positions, const Eigen::Vect
                 interpolate(positions.segment(last, i - last + 1), m_output.segment(last, i - last + 1));
             }
             last     = i; // last point actually estimated
-            auto cut = positions[last] + delta; // x coord of close points
+            auto cut = positions[last] + config.m_delta; // x coord of close points
             for (i = last + 1; i < n; i++) { // find close points
                 if (positions[i] > cut)
                     break; // i one beyond last pt within cut
@@ -165,7 +165,7 @@ void LowessAlgorithm::lowess(const Eigen::VectorXd& positions, const Eigen::Vect
             // back 1 point so interpolation within delta, but always go forward
         } while (last + 1 < n);
         m_residuals = input - m_output;
-        if (iter > nSteps)
+        if (iter > config.m_numberOfSteps)
             break; // compute robustness weights except last time
 
         convertResidualsToRobustnessWeights(m_residuals, m_robustnessWeights);
