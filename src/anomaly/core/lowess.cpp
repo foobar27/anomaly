@@ -81,6 +81,26 @@ bool LowessAlgorithm::lowest(const Eigen::VectorXd& positions,
     return true;
 }
 
+static void convertResidualsToRobustnessWeights(const Eigen::VectorXd& residuals, Eigen::VectorXd& robustnessWeights) {
+    auto n            = residuals.size();
+    robustnessWeights = residuals.cwiseAbs();
+    std::sort(robustnessWeights.data(), robustnessWeights.data() + robustnessWeights.size());
+    auto m1   = n / 2;
+    auto m2   = n - m1;
+    auto cmad = 3.0 * (robustnessWeights[m1] + robustnessWeights[m2]); // 6 median abs resid
+    auto c9   = 0.999 * cmad;
+    auto c1   = 0.001 * cmad;
+    for (Index i = 0; i < n; ++i) {
+        auto r = abs(residuals[i]);
+        if (r <= c1)
+            robustnessWeights[i] = 1.0; // near 0, avoid underflow
+        else if (r > c9)
+            robustnessWeights[i] = 0.0; // near 1, avoid underflow
+        else
+            robustnessWeights[i] = biSquare(r / cmad);
+    }
+}
+
 void LowessAlgorithm::lowess(const Eigen::VectorXd& positions, const Eigen::VectorXd& input, const double f, const Index nSteps, const double delta) {
     auto n = m_numberOfPoints;
     assert(positions.size() == n);
@@ -143,22 +163,7 @@ void LowessAlgorithm::lowess(const Eigen::VectorXd& positions, const Eigen::Vect
         if (iter > nSteps)
             break; // compute robustness weights except last time
 
-        m_robustnessWeights = m_residuals.cwiseAbs();
-        std::sort(m_robustnessWeights.data(), m_robustnessWeights.data() + m_robustnessWeights.size());
-        auto m1   = n / 2;
-        auto m2   = n - m1;
-        auto cmad = 3.0 * (m_robustnessWeights[m1] + m_robustnessWeights[m2]); // 6 median abs resid
-        auto c9   = 0.999 * cmad;
-        auto c1   = 0.001 * cmad;
-        for (Index i = 0; i < n; ++i) {
-            auto r = abs(m_residuals[i]);
-            if (r <= c1)
-                m_robustnessWeights[i] = 1.0; // near 0, avoid underflow
-            else if (r > c9)
-                m_robustnessWeights[i] = 0.0; // near 1, avoid underflow
-            else
-                m_robustnessWeights[i] = biSquare(r / cmad);
-        }
+        convertResidualsToRobustnessWeights(m_residuals, m_robustnessWeights);
     }
 }
 
