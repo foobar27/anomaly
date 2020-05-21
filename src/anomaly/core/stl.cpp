@@ -1,15 +1,20 @@
-//#include "stl.hpp"
+#include "stl.hpp"
 
-//#include <algorithm>
-//#include <cmath>
+#include <algorithm>
+#include <cmath>
+#include <iostream>
 
-//#include <boost/array.hpp>
-//#include <eigen3/Eigen/Dense>
+#include <boost/accumulators/accumulators.hpp>
+#include <boost/accumulators/framework/extractor.hpp>
+#include <boost/accumulators/statistics/rolling_mean.hpp>
+#include <boost/accumulators/statistics/stats.hpp>
+#include <boost/array.hpp>
+#include <eigen3/Eigen/Dense>
 
-// using Scalar = Eigen::VectorXd::Scalar;
-// using Index  = Eigen::Index;
+using Scalar = Eigen::VectorXd::Scalar;
+using Index  = Eigen::Index;
 
-// namespace anomaly::core::stl {
+namespace anomaly::core::stl {
 
 // void Smoother::repair() {
 //    m_length = std::max(size_t(3), m_length);
@@ -26,50 +31,412 @@
 //    m_period = std::max(size_t(2), m_period);
 //}
 
-// inline double square(double x) {
-//    return x * x;
+inline double square(double x) {
+    return x * x;
+}
+
+inline double biSquare(double x) {
+    return square(1.0 - square(x));
+}
+
+inline double cube(double x) {
+    return x * x * x;
+}
+
+inline double triCube(double x) {
+    return cube(1.0 - cube(x));
+}
+
+// const StlConfiguration& m_config;
+// const Eigen::VectorXd   m_season;
+// const Eigen::VectorXd   m_trend;
+// const Eigen::VectorXd   m_work1;
+// const Eigen::VectorXd   m_work2;
+// const Eigen::VectorXd   m_work3;
+// const Eigen::VectorXd   m_work4;
+// const Eigen::VectorXd   m_work5;
+
+static constexpr auto repairPeriod(Index period) {
+    return std::max(Index(2), period);
+}
+
+static constexpr auto tmpSize(const StlConfiguration& config, Index numberOfPoints) {
+    return numberOfPoints + 2 * repairPeriod(config.m_period);
+}
+
+static constexpr lowess::LowessConfiguration repair(lowess::LowessConfiguration config) {
+    // TODO(sw) move to Lowess::Lowess(); or Lowess::repair()?
+    // TODO(sw) does not support ratio syntax
+    config.m_length = std::max(Index(3), config.m_length);
+    if (config.m_length % 2 == 0)
+        config.m_length++; // make odd
+    return config;
+}
+
+static constexpr StlConfiguration repair(StlConfiguration config) {
+    repair(config.m_trendSmoother);
+    repair(config.m_lowPassSmoother);
+    repair(config.m_trendSmoother);
+    return config;
+}
+
+StlAlgorithm::StlAlgorithm(const StlConfiguration& config, Index numberOfPoints)
+    : m_config(repair(config))
+    , m_season(numberOfPoints)
+    , m_trend(numberOfPoints)
+    , m_tmp1(tmpSize(config, numberOfPoints))
+    , m_tmp2(tmpSize(config, numberOfPoints))
+    , m_tmp3(tmpSize(config, numberOfPoints))
+    , m_tmp4(tmpSize(config, numberOfPoints))
+    , m_tmp5(tmpSize(config, numberOfPoints)) { }
+
+// TODO(sw) reuse the corresponding method from lowess.cpp
+// (the difference is the this one also computes the residuals)
+static void
+computeRobustnessWeights(const Eigen::VectorXd& input, const Eigen::VectorBlock<Eigen::VectorXd> fit, Eigen::VectorXd& robustnessWeights) {
+    const auto n = input.size();
+
+    robustnessWeights = (input - fit).cwiseAbs();
+
+    auto m0 = n / 2 + 1;
+    auto m1 = n - m0 + 1;
+    std::sort(robustnessWeights.data(), robustnessWeights.data() + robustnessWeights.size());
+    auto cmad         = 3.0 * (robustnessWeights(m0) + robustnessWeights(m1)); // 6 * median abs resid
+    auto c9           = 0.999 * cmad;
+    auto c1           = 0.001 * cmad;
+    robustnessWeights = (input - fit).cwiseAbs().unaryExpr([c1, c9, cmad](double r) {
+        if (r <= c1)
+            return 1.0;
+        if (r <= c9)
+            return biSquare(r / cmad);
+        return 0.0;
+    });
+}
+
+void StlAlgorithm::stl(const Eigen::VectorXd& input) {
+    bool use_rw = false;
+    m_trend.array().setZero();
+    Index k = 0;
+    do {
+        innerLoop(input, use_rw);
+        ++k;
+        if (k > m_config.m_nIterationsOuterLoop)
+            break;
+        m_tmp1.segment(0, m_trend.size()) = m_trend + m_season;
+        computeRobustnessWeights(input, m_tmp1.segment(0, input.size()), m_robustnessWeights);
+        use_rw = true;
+    } while (true);
+    if (m_config.m_nIterationsOuterLoop <= 0)
+        m_robustnessWeights.array().setOnes();
+}
+
+// void StlAlgorithm::stlez(const Eigen::VectorXd& input, long period, Index season_smoother_length, Index season_degree, Index
+// trend_degree, bool robust, Index numberOfOuterIterations) {
+//    auto y = input;
+//    auto n = input.size();
+//    auto np = period;
+//    // subroutine stlez(y, n, np, ns, isdeg, itdeg, robust, no, rw, season, trend, work)
+
+//    // integer n, i, j, np, ns, no, nt, nl, ni, nsjump, ntjump, nljump, newns, newnp
+//    // real maxs, mins, maxt, mint, maxds, maxdt, difs, dift
+
+//    auto low_pass_degree = trend_degree;
+//    auto newns = std::max(Index(3), season_smoother_length);
+////    if(newns% 2 == 0) newns = newns+1;
+//    // newnp = max0(2,np)
+//    // nt = (1.5*newnp)/(1 - 1.5/newns) + 0.5
+//    // nt = max0(3,nt)
+//    // if(mod(nt,2)==0) nt = nt+1
+//    // nl = newnp
+//    // if(mod(nl,2)==0) nl = nl+1
+//    // if(robust) ni = 1
+//    // else ni = 2
+//    // nsjump = max0(1,int(float(newns)/10 + 0.9))
+//    // ntjump = max0(1,int(float(nt)/10 + 0.9))
+//    // nljump = max0(1,int(float(nl)/10 + 0.9))
+//    // do i = 1,n
+//    //	trend(i) = 0.0
+//    // call onestp(y,n,newnp,newns,nt,nl,isdeg,itdeg,ildeg,nsjump,ntjump,nljump,ni,
+//    //	.false.,rw,season,trend,work)
+//    // no = 0
+//    // if(robust){
+//    //	for(j=1; j<=15; j=j+1){	#robustness iterations
+//    //		do i = 1,n{	#initialize for testing
+//    //			work(i,6) = season(i)
+//    //			work(i,7) = trend(i)
+//    //			work(i,1) = trend(i)+season(i)
+//    //			}
+//    //		call rwts(y,n,work(1,1),rw)
+//    //		call onestp(y, n, newnp, newns, nt, nl, isdeg, itdeg, ildeg, nsjump,
+//    //			ntjump, nljump, ni, .true., rw, season, trend, work)
+//    //		no = no+1
+//    //		maxs = work(1,6)
+//    //		mins = work(1,6)
+//    //		maxt = work(1,7)
+//    //		mint = work(1,7)
+//    //		maxds = abs(work(1,6) - season(1))
+//    //		maxdt = abs(work(1,7) - trend(1))
+//    //		do i = 2,n{
+//    //			if(maxs<work(i,6)) maxs = work(i,6)
+//    //			if(maxt<work(i,7)) maxt = work(i,7)
+//    //			if(mins>work(i,6)) mins = work(i,6)
+//    //			if(mint>work(i,7)) mint = work(i,7)
+//    //			difs = abs(work(i,6) - season(i))
+//    //			dift = abs(work(i,7) - trend(i))
+//    //			if(maxds<difs) maxds = difs
+//    //			if(maxdt<dift) maxdt = dift
+//    //			}
+//    //		if((maxds/(maxs-mins)<.01) & (maxdt/(maxt-mint)<.01)) break
+//    //		}
+//    //	}
+//    // if(!robust){
+//    //	do i = 1,n
+//    //		rw(i) = 1.0
+//    //	}
 //}
 
-// inline double biSquare(double x) {
-//    square(1.0 - square(x));
-//}
+template <typename T>
+static bool est(const T&         y, // size: n
+                Index            len,
+                Index            degree,
+                double           xs,
+                double&          ys,
+                Index            n_left,
+                Index            n_right,
+                Eigen::VectorXd& weights, // size: n
+                bool             use_rw,
+                Eigen::VectorXd& robustness_weights) { // size: n
+    auto   n     = y.size();
+    double range = double(n - 1);
+    auto   h     = std::max(xs - double(n_left), double(n_right) - xs);
+    if (len > n)
+        h += double((len - n) / 2);
+    double h9 = .999 * h;
+    double h1 = .001 * h;
+    // compute weights
+    double a = 0.0;
+    for (Index j = n_left - 1; j < n_right; ++j) {
+        weights[j] = 0.0;
 
-// inline double cube(double x) {
-//    return x * x * x;
-//}
+        auto r = abs(double(j + 1) - xs);
+        if (r <= h9) {
+            if (r <= h1)
+                weights[j] = 1.0;
+            else
+                weights[j] = triCube(r / h);
+            if (use_rw)
+                weights[j] *= robustness_weights[j];
+            a += weights[j];
+        }
+    }
+    if (a <= 0.0)
+        return false;
+    // weighted least squares
+    // make sum of w[j] == 1
+    for (Index j = n_left - 1; j < n_right; ++j)
+        weights[j] /= a;
+    if ((h > 0.) & (degree > 0)) { // use linear fit
+        a = 0.0;
+        for (Index j = n_left - 1; j < n_right; ++j) // weighted center of x values
+            a += weights[j] * double(j + 1);
+        auto   b = xs - a;
+        double c = 0.0;
+        for (Index j = n_left - 1; j < n_right; ++j)
+            c += weights[j] * square(double(j + 1) - a);
+        if (sqrt(c) > .001 * range) {
+            b /= c;
+            // points are spread out enough to compute slope
+            for (Index j = n_left - 1; j < n_right; ++j)
+                weights[j] *= (b * (double(j + 1) - a) + 1.0);
+        }
+    }
+    ys = 0.0;
+    for (Index j = n_left - 1; j < n_right; ++j)
+        ys += weights[j] * y[j];
+    return true;
+}
 
-// inline double triCube(double x) {
-//    return cube(1.0 - cube(x));
-//}
+template <typename Derived1, typename Derived2>
+static void ess(const Eigen::MatrixBase<Derived1>& y, // size: n
+                const lowess::LowessConfiguration& config,
+                bool                               use_rw,
+                Eigen::VectorXd&                   robustness_weights,
+                Eigen::MatrixBase<Derived2>&       ys,
+                Eigen::VectorXd&                   residuals) {
 
-// StlAlgorithm::StlAlgorithm(const StlConfiguration& config, const Eigen::VectorXd& input)
-//    : m_config(config)
-//    , m_input(input) {
-//    m_config.repair(); // TODO ensure via contract
-//}
+    auto n = y.size();
+    if (n < 2) {
+        ys[0] = y[0];
+        return;
+    }
 
-//// TODO(sw) reuse the corresponding method from lowess.cpp
-//// (the difference is the this one also computes the residuals)
-// void computeRobustnessWeights(const Eigen::VectorXd& input, const Eigen::VectorXd& fit, Eigen::VectorXd& robustnessWeights) {
-//    const auto n = input.size();
+    auto  new_nj = std::min(Index(config.m_delta), n - 1);
+    Index n_left{};
+    Index n_right{};
+    if (config.m_length >= n) {
+        n_left  = 1;
+        n_right = n;
+        for (Index i = 0; i < n; i += new_nj) {
+            if (!est(y, config.m_length, config.m_degree, double(i + 1), ys[i], n_left, n_right, residuals, use_rw, robustness_weights))
+                ys[i] = y[i];
+        }
+    } else if (new_nj == 1) { // newnj equal to one, len less than n
+        Index n_sh = (config.m_length + 1) / 2;
+        n_left     = 1;
+        n_right    = config.m_length;
+        for (Index i = 0; i < n; ++i) { // fitted value at i
+            if (i + 1 > n_sh && n_right != n) {
+                n_left++;
+                n_right++;
+            }
+            if (!est(y, config.m_length, config.m_degree, double(i + 1), ys[i], n_left, n_right, residuals, use_rw, robustness_weights))
+                ys[i] = y[i];
+        }
+    } else { // newnj greater than one, len less than n
+        Index n_sh = (config.m_length + 1) / 2;
+        for (Index i = 1; i <= n; i += new_nj) { // fitted value at i
+            if (i < n_sh) {
+                n_left  = 1;
+                n_right = config.m_length;
+            } else if (i >= n - n_sh + 1) {
+                n_left  = n - config.m_length + 1;
+                n_right = n;
+            } else {
+                n_left  = i - n_sh + 1;
+                n_right = config.m_length + i - n_sh;
+            }
+            if (!est(y, config.m_length, config.m_degree, double(i + 1), ys(i), n_left, n_right, residuals, use_rw, robustness_weights))
+                ys[i - 1] = y[i - 1];
+        }
+    }
+    if (new_nj != 1) {
+        for (Index i = 0; i < n - new_nj; i += new_nj) {
+            auto delta = (ys[i + new_nj] - ys[i]) / double(new_nj);
+            for (Index j = i + 1; j < i + 1 + new_nj - 1; ++j)
+                ys[j] = ys[i] + delta * double(j);
+        }
+        auto k = ((n - 1) / new_nj) * new_nj + 1;
+        if (k != n) {
+            if (!est(y, config.m_length, config.m_degree, double(n), ys(n), n_left, n_right, residuals, use_rw, robustness_weights))
+                ys[n - 1] = y[n - 1];
+            if (k != n - 1) {
+                auto delta = (ys(n) - ys(k)) / double(n - k);
+                for (Index j = k; j < n - 1; ++j)
+                    ys[j] = ys[k - 1] + delta * double(j + 1 - k);
+            }
+        }
+    }
+}
 
-//    robustnessWeights = (input - fit).cwiseAbs();
+// If input has size n, output has size n-len+1.
+static void movingAverage(const Eigen::VectorXd& input, Index len, Eigen::VectorXd& output) {
+    using namespace std;
+    using namespace boost::accumulators;
+    accumulator_set<double, stats<tag::rolling_mean>> acc(tag::rolling_window::window_size = len);
+    for_each(input.data(), input.data() + len, acc);
 
-//    auto m0 = n / 2 + 1;
-//    auto m1 = n - m0 + 1;
-//    std::sort(robustnessWeights.data(), robustnessWeights.data() + robustnessWeights.size());
-//    auto cmad         = 3.0 * (robustnessWeights(m0) + robustnessWeights(m1)); // 6 * median abs resid
-//    auto c9           = 0.999 * cmad;
-//    auto c1           = 0.001 * cmad;
-//    robustnessWeights = (input - fit).cwiseAbs().unaryExpr([c1, c9, cmad](double r) {
-//        if (r <= c1)
-//            return 1.0;
-//        else if (r <= c9)
-//            return biSquare(r / cmad);
-//        else
-//            return 0.0;
-//    });
-//}
+    // get the first average
+    output[0] = rolling_mean(acc);
+
+    auto new_n = input.size() - len + 1;
+    if (new_n > 1) {
+        auto k = len - 1;
+        for (Index j = 1; j < new_n; ++j) {
+            k++;
+            acc(input[k]);
+            output[j] = rolling_mean(acc);
+        }
+    }
+}
+
+static void fts(const Eigen::VectorXd& input, Index period, Eigen::VectorXd& trend, Eigen::VectorXd& tmp) {
+    // Three subsequent moving averages: (N=original_n, P=period)
+    // - input has length: n = N + 2*P
+    // - smoothing with len=period yields a vector of length: n - P + 1 = N + 2*P - P + 1 = N + P + 1
+    // - smoothing with len=period yields a vector of length: N + P + 1 - P  + 1 = N + 2
+    // - smoothing with len=3 yields a vector of length: N + 2 - 3 + 1 = N (which is the original size)
+    auto n = input.size();
+    movingAverage(input, period, trend);
+    movingAverage(trend.segment(0, n - period + 1), period, tmp);
+    movingAverage(tmp.segment(0, n - 2 * period + 2), 3, trend);
+}
+
+template <typename DerivedInput>
+static void ss(const Eigen::MatrixBase<DerivedInput>& input, // size: n
+               Index                                  period,
+               const lowess::LowessConfiguration&     smoother,
+               bool                                   use_rw,
+               Eigen::VectorXd&                       robustness_weights, // size: n
+               Eigen::VectorXd&                       season, // size: n + 2*period
+               Eigen::VectorXd&                       work1, // size: n
+               Eigen::VectorXd&                       work2, // size: n
+               Eigen::VectorXd&                       work3, // size: n
+               Eigen::VectorXd&                       work4) { // size: n
+    auto n = input.size();
+    for (Index j = 0; j < period; ++j) {
+        auto k = (n - j - 1) / period + 1;
+
+        // Transpose cycle matrix into work1
+        for (Index i = 0; i < k; ++i)
+            work1[i] = input[i * period + j];
+
+        if (use_rw) {
+            // Transpose robustnessWeight series into work3 // TODO(sw) code reuse?
+            for (Index i = 0; i < k; ++i)
+                work3[i] = robustness_weights[i * period + j];
+        }
+        // Lowess smoothing, from work 1 to work2
+        // Robustness_weights in work3 (with skips).
+        auto work1_seg = work1.segment(0, k);
+        auto work2_seg = work2.segment(1, work2.size() - 1);
+        ess(work1_seg, smoother, use_rw, work3, work2_seg, work4);
+        {
+            // Add left margin to smoothing
+            double xs      = 0;
+            Index  n_right = std::min(smoother.m_length, k);
+            if (!est(work1.segment(0, k), smoother.m_length, smoother.m_degree, xs, work2[0], 1, n_right, work4, use_rw, work3))
+                work2[0] = work2[1];
+        }
+
+        {
+            // Add right margin to smoothing
+            auto  xs     = double(k + 1);
+            Index n_left = std::max(Index(1), k - smoother.m_length + 1);
+            if (!est(work1.segment(0, k), smoother.m_length, smoother.m_degree, xs, work2[k + 1], n_left, k, work4, use_rw, work3))
+                work2[k + 2] = work2[k + 1];
+        }
+
+        // Transpose work2 into season (backwards)
+        for (Index m = 0; m < k + 2; ++m)
+            season[m * period + j] = work2[m];
+    }
+}
+
+void StlAlgorithm::innerLoop(const Eigen::VectorXd& input, bool use_rw) {
+    auto n        = input.size();
+    auto tmp1_seg = m_tmp1.segment(0, n);
+    for (Index j = 0; j < m_config.m_nIterationsInnerLoop; ++j) {
+        // Step 1: Detrending
+        tmp1_seg = input - m_trend;
+
+        // Step 2: Cycle sub-series smoothing
+        ss(tmp1_seg, m_config.m_period, m_config.m_seasonalSmoother, use_rw, m_robustnessWeights, m_tmp2, m_tmp3, m_tmp4, m_tmp5, m_season);
+
+        // Step 3: Low-pass filtering of smoothed cycle series
+        fts(m_tmp2, m_config.m_period, m_tmp3, m_tmp1);
+        auto tmp3_seg = m_tmp3.segment(0, n);
+        ess(tmp3_seg, m_config.m_lowPassSmoother, false, m_tmp4, m_tmp1, m_tmp5);
+
+        // Step 4: Detrending of smoothed cycle sub-series
+        m_season = m_tmp2.segment(m_config.m_period, n) - m_tmp1.segment(0, n);
+
+        // Step 5: Deseasonalizing
+        m_tmp1.segment(0, n) = input - m_season;
+
+        // Step 6: Trend smoothing
+        ess(tmp1_seg, m_config.m_trendSmoother, use_rw, m_robustnessWeights, m_trend, m_tmp3);
+    }
+}
 
 // void StlAlgorithm::stl() {
 //    auto            n = m_input.size();
@@ -699,4 +1066,4 @@
 //////		rw(i) = 1.0
 //////	}
 
-//} // end namespace anomaly::core::timeseries
+} // end namespace anomaly::core::stl

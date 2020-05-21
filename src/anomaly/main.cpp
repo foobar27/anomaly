@@ -43,7 +43,7 @@ private:
     double       m_estimate;
 };
 
-double determineInterquantileRange(const TimeSeries& time_series) {
+static double determineInterquantileRange(const TimeSeries& time_series) {
     using namespace boost::accumulators;
     using Accumulator = accumulator_set<double, stats<tag::extended_p_square>>;
 
@@ -56,7 +56,7 @@ double determineInterquantileRange(const TimeSeries& time_series) {
 }
 
 // TODO this should be a cyclic TimeSeries (less storage)
-TimeSeries determineSeasonalComponent(const TimeSeries& input) {
+static TimeSeries determineSeasonalComponent(const TimeSeries& input) {
     using Accumulator = boost::accumulators::accumulator_set<double, boost::accumulators::features<boost::accumulators::tag::mean>>;
     auto                step_in_seconds = input.getConfig().m_stepInSeconds;
     size_t              number_of_bins  = 1440; // TODO(sw) deduce
@@ -78,7 +78,7 @@ TimeSeries determineSeasonalComponent(const TimeSeries& input) {
 
 #include <eigen3/Eigen/Dense>
 
-int main() {
+int main2() {
     using namespace Eigen;
     using namespace std;
     VectorXd big(5);
@@ -87,9 +87,10 @@ int main() {
     segment[0]   = 100;
     cout << segment.sum() << endl;
     cout << big[1] << endl;
+    return 0;
 }
 
-int main2() {
+int main() {
     ifstream is("/home/sebastien/percent.wsp", ifstream::binary);
     MetaData meta_data{};
     is >> meta_data;
@@ -118,7 +119,7 @@ int main2() {
         auto time_series = archive.createTimeSeries();
 
         auto range_in_points  = determineInterquantileRange(time_series);
-        auto range_in_seconds = range_in_points * time_series.getConfig().m_stepInSeconds;
+        auto range_in_seconds = range_in_points * double(time_series.getConfig().m_stepInSeconds);
         cout << "Learning rate 1 would mean " << range_in_seconds << " seconds to traverse the inter-quantile range" << endl;
 
         auto seasonal = determineSeasonalComponent(time_series);
@@ -132,7 +133,7 @@ int main2() {
                 double val    = *point.m_value;
                 auto   season = seasonal_it->m_value;
 
-                auto noSeason = val; // TODO minus season
+                auto noSeason = val; // TODO(sw) minus season
                 median(noSeason);
                 double deviation = abs(noSeason - *median);
                 median_deviation(deviation);

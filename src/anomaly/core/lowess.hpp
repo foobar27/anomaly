@@ -18,6 +18,13 @@ struct LowessConfiguration {
     Index m_length;
 
     /**
+     * @brief m_degree Degree of the polynomial to be fitted.
+     *
+     * Supported values: 0 and 1
+     */
+    Index m_degree;
+
+    /**
      * @brief m_ratio specifies the amount of smoothing, as a ratio of the number of points
      *
      * Either m_length or m_ratio must be set.
@@ -87,16 +94,51 @@ constexpr T triCube(const T x) {
     return cube(1.0 - cube(x));
 }
 
-template <class Derived>
+static inline double smartMedianDestructive(Eigen::VectorXd& a) {
+    // This is the version from the paper:
+    //     std::sort(a.data(), a.data() + a.size());
+    //     auto m1 = n / 2;
+    //     auto m2 = n - m1 - 1;
+    //     return (a[m1] + a[m2]) / 2.0;
+    // Unfortunately this has a bias to one side, which I can't understand why it would be needed.
+    // We will try a different approach here.
+
+    // If n is odd, get the median value.
+    // For example, if n=3, get a[1] (aka n/2).
+    // If n is even, get the average of the two median value.
+    // For example, if n=4, get the average of a[1] and a[2] (aka n/2-1 and n/2).
+    // In any case, we can start with n/2.
+
+    using std::nth_element;
+    auto n = a.size();
+
+    //    {
+    //        std::sort(a.data(), a.data() + a.size());
+    //        auto m1 = n / 2;
+    //        auto m2 = n - m1 - 1;
+    //        return (a[m1] + a[m2]) / 2.0;
+    //    }
+
+    auto m1 = n / 2;
+    nth_element(a.data(), a.data() + m1, a.data() + n);
+    auto m1_val = a[m1];
+    if (n % 2 == 1) {
+        return m1_val;
+    }
+    auto m2_val = m1_val; // in case n is even
+    // n is even, so additionally consider the previous value.
+    auto m2 = m1 + 1;
+    // We know the element is in the first part (excluding m1), and it's actually the maximum.
+    m2_val = *std::max_element(a.data(), a.data() + m1);
+    m2_val = a[m2];
+    return double(m1 + m2) / 2.0;
+}
+
+template <typename Derived>
 static void convertResidualsToRobustnessWeights(const Eigen::MatrixBase<Derived>& residuals, Eigen::VectorXd& robustnessWeights) {
     using Scalar      = Eigen::VectorXd::Scalar;
-    using Index       = Eigen::Index;
-    auto n            = residuals.size();
     robustnessWeights = residuals.cwiseAbs();
-    std::sort(robustnessWeights.data(), robustnessWeights.data() + robustnessWeights.size());
-    auto m1           = n / 2;
-    auto m2           = n - m1;
-    auto cmad         = 3.0 * (robustnessWeights[m1] + robustnessWeights[m2]); // 6 median abs resid
+    auto cmad         = 6.0 * smartMedianDestructive(robustnessWeights); // 6 median abs resid
     auto c9           = 0.999 * cmad;
     auto c1           = 0.001 * cmad;
     robustnessWeights = residuals.cwiseAbs().unaryExpr([c1, c9, cmad](Scalar r) {
@@ -178,7 +220,7 @@ public:
             m_output[0] = input[0];
             return;
         }
-        Index ns = std::clamp<Index>(config.m_length > 0 ? config.m_length : (Index)(config.m_ratio * n), 2, n);
+        Index ns = std::clamp<Index>(config.m_length > 0 ? config.m_length : Index(config.m_ratio * double(n)), 2, n);
 
         // robustness iterations
         for (Index iter = 1; iter <= config.m_numberOfSteps + 1; iter = iter + 1) {

@@ -85,7 +85,6 @@ add_library(anomaly
     src/anomaly/core/timeseries.cpp
     src/anomaly/core/stl.cpp
     src/anomaly/whisper/model.cpp
-    # src/anomaly/main.cpp
     )
 target_link_libraries(anomaly PUBLIC anomaly_headers
                                        INTERFACE ${CMAKE_DL_LIBS}
@@ -109,7 +108,7 @@ add_executable(anomaly_test
     test/matchers.hpp
     test/matchers.cpp
     test/lowess_test.cpp
-    #test/Interfaces.hpp
+    test/stl_test.cpp
     test/catch.hpp)
 target_link_libraries(anomaly_test anomaly)
 add_test(anomaly_test anomaly_test -r junit -o junit.xml -s)
@@ -117,10 +116,11 @@ add_test(anomaly_test anomaly_test -r junit -o junit.xml -s)
 # TODO add src/main.cpp
 # Examples
 ## Example 1
-#add_library(anomaly_example1 SHARED
-#    examples/example1/Extension.cpp
-#    examples/example1/Interface.hpp)
-#target_link_libraries(anomaly_example1_extension PRIVATE anomaly_headers)
+add_executable(anomaly_example1
+    src/anomaly/main.cpp # TODO move to examples dir
+    )
+target_link_libraries(anomaly_example1 anomaly)
 
-#add_executable(anomaly_example1 examples/example1/main.cpp examples/example1/Interface.hpp)
-#target_link_libraries(anomaly_example1 extension_system)
+add_executable(anomaly_experiments
+    src/anomaly/experiments.cpp # TODO move to examples dir
+    )
