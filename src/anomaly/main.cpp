@@ -1,15 +1,20 @@
 #include "whisper/model.hpp"
+#include "anomaly/core/stl.hpp"
 
 #include <cassert>
+#include <chrono>
 #include <cmath>
 #include <fstream>
 #include <vector>
 #include <sstream>
+
 #include <boost/array.hpp>
 #include <boost/accumulators/accumulators.hpp>
 #include <boost/accumulators/statistics/mean.hpp>
 #include <boost/accumulators/statistics/extended_p_square_quantile.hpp>
 #include <boost/accumulators/statistics/stats.hpp>
+
+#include <eigen3/Eigen/Dense>
 
 using namespace std;
 using namespace anomaly::whisper::model;
@@ -76,7 +81,81 @@ static TimeSeries determineSeasonalComponent(const TimeSeries& input) {
     return output;
 }
 
-#include <eigen3/Eigen/Dense>
+int main() {
+    using namespace anomaly::core::stl;
+    ifstream is("/home/sebastien/percent.wsp", ifstream::binary);
+    MetaData meta_data{};
+    is >> meta_data;
+
+    cout << debug(meta_data) << endl;
+
+    vector<ArchiveInfo> archive_infos{};
+    for (uint i = 0; i < meta_data.m_archiveCount; ++i) {
+        ArchiveInfo archive_info{};
+        is >> archive_info;
+        archive_infos.push_back(archive_info);
+        cout << debug(archive_info);
+        cout << " retention=" << archive_info.retention();
+        cout << " size=" << archive_info.size();
+        cout << endl;
+    }
+
+    Archive archive{archive_infos[0]};
+    archive.readPoints(is);
+    auto time_series = archive.createTimeSeries();
+
+    Eigen::VectorXd input{time_series.allPoints().size()};
+    size_t          i        = 0;
+    double          previous = 0.0;
+    for (const auto& point : time_series.allPoints()) {
+        double value = previous;
+        if (point.m_value)
+            value = *point.m_value;
+        input[i] = value;
+        ++i;
+    }
+
+    int  points_per_period = 1440;
+    auto low_pass_length   = points_per_period;
+    if (low_pass_length % 2 == 0)
+        low_pass_length++;
+    // smoothers: length, degree, ratio, number of steps, delta
+    StlConfiguration config{points_per_period,
+                            // seasonal smoother
+                            {7, 1, 0.0, 0, 1},
+                            // trend smoother
+                            {points_per_period * 2, 1, 0.0, 0, points_per_period / 20.0},
+                            // lowpass smoother
+                            {low_pass_length, 1, 0.0, 0, points_per_period / 20.0},
+                            // number of iterations inner loop
+                            1,
+                            // number of iterations outer loop
+                            1};
+
+    StlAlgorithm decomposition(config, input.size());
+    {
+        // Performance testing
+        auto start        = std::chrono::high_resolution_clock::now();
+        auto n_iterations = 1000;
+        for (int i = 0; i < n_iterations; ++i) {
+            Eigen::VectorXd copy = input;
+            decomposition.stl(input);
+        }
+        auto finish       = std::chrono::high_resolution_clock::now();
+        auto microseconds = std::chrono::duration_cast<std::chrono::microseconds>(finish - start);
+        std::cout << (microseconds.count() / n_iterations) << "µs\n";
+    }
+
+    decomposition.stl(input);
+
+    ofstream f("/tmp/percent-decomposed.tsv");
+    f << "x\tinput\tseason\ttrend" << endl;
+    for (int i = 0; i < input.size(); ++i) {
+        f << i << "\t" << input[i] << "\t" << decomposition.season()[i] << "\t" << decomposition.trend()[i] << endl;
+    }
+
+    return 0;
+}
 
 int main2() {
     using namespace Eigen;
@@ -90,7 +169,7 @@ int main2() {
     return 0;
 }
 
-int main() {
+int main3() {
     ifstream is("/home/sebastien/percent.wsp", ifstream::binary);
     MetaData meta_data{};
     is >> meta_data;

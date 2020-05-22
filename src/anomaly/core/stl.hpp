@@ -17,7 +17,7 @@ struct StlConfiguration {
     Index m_period;
 
     /**
-     * @brief The configuration of the seasonal smoother.
+     * @brief The configuration of the seasonal lowess smoother.
      *
      * Smoothes the seasonal component at a given point in the seasonal cycle
      * (e.g., January values of a monthly series with a yearly cycle).
@@ -27,11 +27,18 @@ struct StlConfiguration {
     lowess::LowessConfiguration m_seasonalSmoother;
 
     /**
-     * @brief m_trendSmoother
+     * @brief m_trendSmoother The configuration for the lowess smoother on the trend series.
      *
      * It is recommended that the length of the smoother is between 1.5 * period and 2 * period.
      */
     lowess::LowessConfiguration m_trendSmoother;
+
+    /**
+     * @brief m_lowPassSmoother The configuration for the lowess smoother TODO(sw)
+     *
+     * The length of the smoother must be an odd integer greater than or equal to 3.
+     * The smallest odd integer greater than or equal to m_period is recommended.
+     */
     lowess::LowessConfiguration m_lowPassSmoother;
 
     /**
@@ -82,7 +89,7 @@ private:
     const StlConfiguration m_config;
     Eigen::VectorXd        m_season;
     Eigen::VectorXd        m_trend;
-    Eigen::VectorXd        m_robustnessWeights; // TODO(sw) move to lowess
+    Eigen::VectorXd        m_robustnessWeights;
     Eigen::VectorXd        m_tmp1;
     Eigen::VectorXd        m_tmp2;
     Eigen::VectorXd        m_tmp3;
