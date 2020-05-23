@@ -188,21 +188,21 @@ static bool est(const T&         y, // size: n
                 Index            degree,
                 double           xs,
                 double&          ys,
-                Index            n_left, // TODO(sw) shift
+                Index            n_left,
                 Index            n_right, // TODO(sw) shift
                 Eigen::VectorXd& weights, // size: n
                 bool             use_rw,
                 Eigen::VectorXd& robustness_weights) { // size: n
     auto   n     = y.size();
     double range = double(n - 1);
-    auto   h     = std::max(xs - double(n_left), double(n_right) - xs);
+    auto   h     = std::max(xs - double(n_left + 1), double(n_right) - xs);
     if (len > n)
         h += double((len - n) / 2);
     double h9 = .999 * h;
     double h1 = .001 * h;
     // compute weights
     double a = 0.0;
-    for (Index j = n_left - 1; j < n_right; ++j) {
+    for (Index j = n_left; j < n_right; ++j) {
         weights[j] = 0.0;
 
         auto r = abs(double(j + 1) - xs);
@@ -220,25 +220,25 @@ static bool est(const T&         y, // size: n
         return false;
     // weighted least squares
     // make sum of w[j] == 1
-    for (Index j = n_left - 1; j < n_right; ++j)
+    for (Index j = n_left; j < n_right; ++j)
         weights[j] /= a;
     if ((h > 0.) & (degree > 0)) { // use linear fit
         a = 0.0;
-        for (Index j = n_left - 1; j < n_right; ++j) // weighted center of x values
+        for (Index j = n_left; j < n_right; ++j) // weighted center of x values
             a += weights[j] * double(j + 1);
         auto   b = xs - a;
         double c = 0.0;
-        for (Index j = n_left - 1; j < n_right; ++j)
+        for (Index j = n_left; j < n_right; ++j)
             c += weights[j] * square(double(j + 1) - a);
         if (sqrt(c) > .001 * range) {
             b /= c;
             // points are spread out enough to compute slope
-            for (Index j = n_left - 1; j < n_right; ++j)
+            for (Index j = n_left; j < n_right; ++j)
                 weights[j] *= (b * (double(j + 1) - a) + 1.0);
         }
     }
     ys = 0.0;
-    for (Index j = n_left - 1; j < n_right; ++j)
+    for (Index j = n_left; j < n_right; ++j)
         ys += weights[j] * y[j];
     return true;
 }
@@ -261,7 +261,7 @@ static void ess(const Eigen::MatrixBase<Derived1>& y, // size: n
     Index n_left{};
     Index n_right{};
     if (config.m_length >= n) {
-        n_left  = 1;
+        n_left  = 0;
         n_right = n;
         for (Index i = 0; i < n; i += new_nj) {
             if (!est(y, config.m_length, config.m_degree, double(i + 1), ys[i], n_left, n_right, residuals, use_rw, robustness_weights))
@@ -269,7 +269,7 @@ static void ess(const Eigen::MatrixBase<Derived1>& y, // size: n
         }
     } else if (new_nj == 1) { // newnj equal to one, len less than n
         Index n_sh = (config.m_length + 1) / 2;
-        n_left     = 1;
+        n_left     = 0;
         n_right    = config.m_length;
         for (Index i = 0; i < n; ++i) { // fitted value at i
             if (i + 1 > n_sh && n_right != n) {
@@ -283,13 +283,13 @@ static void ess(const Eigen::MatrixBase<Derived1>& y, // size: n
         Index n_sh = (config.m_length + 1) / 2;
         for (Index i = 0; i < n; i += new_nj) { // fitted value at i
             if (i + 1 < n_sh) {
-                n_left  = 1;
+                n_left  = 0;
                 n_right = config.m_length;
             } else if (i > n - n_sh + 1) {
-                n_left  = n - config.m_length + 1;
+                n_left  = n - config.m_length;
                 n_right = n;
             } else {
-                n_left  = i - n_sh + 2;
+                n_left  = i - n_sh + 1;
                 n_right = config.m_length + i + 1 - n_sh;
             }
             if (!est(y, config.m_length, config.m_degree, double(i + 1), ys[i], n_left, n_right, residuals, use_rw, robustness_weights))
