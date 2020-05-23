@@ -281,19 +281,19 @@ static void ess(const Eigen::MatrixBase<Derived1>& y, // size: n
         }
     } else { // newnj greater than one, len less than n
         Index n_sh = (config.m_length + 1) / 2;
-        for (Index i = 1; i <= n; i += new_nj) { // fitted value at i // TODO(sw) shift i
-            if (i < n_sh) {
+        for (Index i = 0; i < n; i += new_nj) { // fitted value at i
+            if (i + 1 < n_sh) {
                 n_left  = 1;
                 n_right = config.m_length;
-            } else if (i >= n - n_sh + 1) {
+            } else if (i > n - n_sh + 1) {
                 n_left  = n - config.m_length + 1;
                 n_right = n;
             } else {
-                n_left  = i - n_sh + 1;
-                n_right = config.m_length + i - n_sh;
+                n_left  = i - n_sh + 2;
+                n_right = config.m_length + i + 1 - n_sh;
             }
-            if (!est(y, config.m_length, config.m_degree, double(i), ys[i - 1], n_left, n_right, residuals, use_rw, robustness_weights))
-                ys[i - 1] = y[i - 1];
+            if (!est(y, config.m_length, config.m_degree, double(i + 1), ys[i], n_left, n_right, residuals, use_rw, robustness_weights))
+                ys[i] = y[i];
         }
     }
     if (new_nj != 1) {
