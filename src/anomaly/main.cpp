@@ -136,7 +136,7 @@ int main() {
     {
         // Performance testing
         auto start        = std::chrono::high_resolution_clock::now();
-        auto n_iterations = 1000;
+        auto n_iterations = 10;
         for (int i = 0; i < n_iterations; ++i) {
             Eigen::VectorXd copy = input;
             decomposition.stl(input);

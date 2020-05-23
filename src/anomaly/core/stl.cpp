@@ -201,7 +201,8 @@ static bool est(const T&         y, // size: n
     double h9 = .999 * h;
     double h1 = .001 * h;
     // compute weights
-    double a = 0.0;
+    double a           = 0.0;
+    auto   weights_seg = weights.segment(n_left, n_right - n_left);
     for (Index j = n_left; j < n_right; ++j) {
         weights[j] = 0.0;
 
@@ -237,9 +238,7 @@ static bool est(const T&         y, // size: n
                 weights[j] *= (b * (double(j + 1) - a) + 1.0);
         }
     }
-    ys = 0.0;
-    for (Index j = n_left; j < n_right; ++j)
-        ys += weights[j] * y[j];
+    ys = weights_seg.dot(y.segment(n_left, n_right - n_left));
     return true;
 }
 
