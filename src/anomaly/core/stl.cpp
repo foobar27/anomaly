@@ -201,32 +201,31 @@ static bool est(const T&         y, // size: n
     double h9 = .999 * h;
     double h1 = .001 * h;
     // compute weights
-    double a           = 0.0;
-    auto   weights_seg = weights.segment(n_left, n_right - n_left);
+    auto weights_seg = weights.segment(n_left, n_right - n_left);
     for (Index j = n_left; j < n_right; ++j) {
         weights[j] = 0.0;
-
-        auto r = abs(double(j + 1) - xs);
+        auto r     = abs(double(j + 1) - xs);
         if (r <= h9) {
             if (r <= h1)
                 weights[j] = 1.0;
             else
                 weights[j] = triCube(r / h);
-            if (use_rw)
-                weights[j] *= robustness_weights[j];
-            a += weights[j];
         }
     }
+    if (use_rw)
+        weights_seg.array() *= robustness_weights.segment(n_left, n_right - n_left).array();
+    // make sum of w[j] == 1
+    double a = weights_seg.sum();
     if (a <= 0.0)
         return false;
+    weights_seg /= a;
     // weighted least squares
-    // make sum of w[j] == 1
-    for (Index j = n_left; j < n_right; ++j)
-        weights[j] /= a;
     if ((h > 0.) & (degree > 0)) { // use linear fit
-        a = 0.0;
-        for (Index j = n_left; j < n_right; ++j) // weighted center of x values
-            a += weights[j] * double(j + 1);
+        // weighted center of x values
+        auto   positions = Eigen::VectorXd::LinSpaced(n_right - n_left, n_left + 1, n_right);
+        double a         = weights_seg.dot(positions);
+        //                for (Index j = n_left; j < n_right; ++j)
+        //                    a += weights[j] * double(j + 1);
         auto   b = xs - a;
         double c = 0.0;
         for (Index j = n_left; j < n_right; ++j)
