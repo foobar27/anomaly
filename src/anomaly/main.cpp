@@ -5,14 +5,14 @@
 #include <chrono>
 #include <cmath>
 #include <fstream>
-#include <vector>
 #include <sstream>
+#include <vector>
 
-#include <boost/array.hpp>
 #include <boost/accumulators/accumulators.hpp>
-#include <boost/accumulators/statistics/mean.hpp>
 #include <boost/accumulators/statistics/extended_p_square_quantile.hpp>
+#include <boost/accumulators/statistics/mean.hpp>
 #include <boost/accumulators/statistics/stats.hpp>
+#include <boost/array.hpp>
 
 #include <eigen3/Eigen/Dense>
 
@@ -22,8 +22,10 @@ using anomaly::core::timeseries::TimeSeries;
 
 class MedianEstimator { // TODO(sw) could be a boost accumulator
 public:
-    MedianEstimator(double learningRate)
-        : m_learningRate(learningRate) { }
+    explicit MedianEstimator(double learningRate)
+        : m_learningRate{learningRate}
+        , m_first{true}
+        , m_estimate{0} { }
 
     void operator()(double value) {
         if (m_first) {
@@ -44,7 +46,7 @@ public:
 
 private:
     const double m_learningRate;
-    bool         m_first = true;
+    bool         m_first;
     double       m_estimate;
 };
 
@@ -60,7 +62,7 @@ static double determineInterquantileRange(const TimeSeries& time_series) {
     return p75 - p25;
 }
 
-// TODO this should be a cyclic TimeSeries (less storage)
+// TODO(sw) this should be a cyclic TimeSeries (less storage)
 static TimeSeries determineSeasonalComponent(const TimeSeries& input) {
     using Accumulator = boost::accumulators::accumulator_set<double, boost::accumulators::features<boost::accumulators::tag::mean>>;
     auto                step_in_seconds = input.getConfig().m_stepInSeconds;
@@ -75,13 +77,13 @@ static TimeSeries determineSeasonalComponent(const TimeSeries& input) {
     TimeSeries output{input.getConfig()};
     for (auto& point : input.allPoints()) {
         auto bin = (point.m_timestamp / step_in_seconds) % number_of_bins;
-        // TODO only set if bin is not empty!
+        // TODO(sw) only set if bin is not empty!
         point.m_value = boost::accumulators::mean(bins[bin]);
     }
     return output;
 }
 
-int main() {
+int main0() {
     using namespace anomaly::core::stl;
     ifstream is("/home/sebastien/percent.wsp", ifstream::binary);
     MetaData meta_data{};
@@ -104,16 +106,7 @@ int main() {
     archive.readPoints(is);
     auto time_series = archive.createTimeSeries();
 
-    Eigen::VectorXd input{time_series.allPoints().size()};
-    size_t          i        = 0;
-    double          previous = 0.0;
-    for (const auto& point : time_series.allPoints()) {
-        double value = previous;
-        if (point.m_value)
-            value = *point.m_value;
-        input[i] = value;
-        ++i;
-    }
+    Eigen::VectorXd input = time_series.toVectorXdFillNulls();
 
     int  points_per_period = 1440;
     auto low_pass_length   = points_per_period;
@@ -138,7 +131,6 @@ int main() {
         auto start        = std::chrono::high_resolution_clock::now();
         auto n_iterations = 10;
         for (int i = 0; i < n_iterations; ++i) {
-            Eigen::VectorXd copy = input;
             decomposition.stl(input);
         }
         auto finish       = std::chrono::high_resolution_clock::now();
@@ -169,8 +161,8 @@ int main2() {
     return 0;
 }
 
-int main3() {
-    ifstream is("/home/sebastien/percent.wsp", ifstream::binary);
+int main() {
+    ifstream is("/home/sebastien/end-offset.wsp", ifstream::binary);
     MetaData meta_data{};
     is >> meta_data;
 
@@ -189,7 +181,7 @@ int main3() {
 
     // for (auto & archive_info : archive_infos) {
     {
-        ofstream      os("/tmp/percent-recent.tsv");
+        ofstream      os("/tmp/end-offset-recent.tsv");
         auto          archive_info = archive_infos[0];
         vector<Point> points{};
 
@@ -201,24 +193,22 @@ int main3() {
         auto range_in_seconds = range_in_points * double(time_series.getConfig().m_stepInSeconds);
         cout << "Learning rate 1 would mean " << range_in_seconds << " seconds to traverse the inter-quantile range" << endl;
 
+        auto diff = derivative(time_series);
+
         auto seasonal = determineSeasonalComponent(time_series);
         // TODO(sw) implement a range?
-        MedianEstimator median(1.0);
-        MedianEstimator median_deviation(1.0);
+        MedianEstimator median(0.001);
+        MedianEstimator median_deviation(0.001);
         os << "timestamp\tvalue\tmedian\tmedian_deviation\tseason" << endl;
-        auto seasonal_it = seasonal.allPoints().begin(); // TODO(sw) iterate over two ranges
-        for (auto point : time_series.allPoints()) {
-            if (point.m_value) {
-                double val    = *point.m_value;
-                auto   season = seasonal_it->m_value;
+        for (auto point : diff.allPoints()) {
+            double val    = *point.m_value;
+            auto   season = 0.0; // seasonal_it->m_value;
 
-                auto noSeason = val; // TODO(sw) minus season
-                median(noSeason);
-                double deviation = abs(noSeason - *median);
-                median_deviation(deviation);
-                os << point.m_timestamp << "\t" << *point.m_value << "\t" << *median << "\t" << *median_deviation << "\t" << *season << endl;
-            }
-            seasonal_it++;
+            auto no_season = val;
+            median(no_season);
+            double deviation = abs(no_season - *median);
+            median_deviation(deviation);
+            os << point.m_timestamp << "\t" << val << "\t" << *median << "\t" << *median_deviation << "\t" << season << endl;
         }
     }
 

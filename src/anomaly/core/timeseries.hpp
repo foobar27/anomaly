@@ -3,6 +3,7 @@
 #include <optional>
 #include <vector>
 #include <boost/accumulators/accumulators.hpp>
+#include <eigen3/Eigen/Dense>
 
 namespace anomaly::core::timeseries {
 
@@ -44,6 +45,8 @@ public:
         return m_points;
     }
 
+    Eigen::VectorXd toVectorXdFillNulls() const;
+
     // TODO inline this once we have proper ranges
     template <typename Accumulator>
     void accumulateNonNull(Accumulator& acc) const {
@@ -59,5 +62,7 @@ private:
     TimeSeriesConfiguration m_config;
     std::vector<Point>      m_points;
 };
+
+TimeSeries derivative(const TimeSeries& time_series);
 
 } // end namespace anomaly::core::timeseries
