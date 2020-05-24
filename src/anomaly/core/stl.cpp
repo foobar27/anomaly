@@ -11,6 +11,8 @@
 #include <boost/array.hpp>
 #include <eigen3/Eigen/Dense>
 
+#include "utils.hpp"
+
 using Scalar = Eigen::VectorXd::Scalar;
 using Index  = Eigen::Index;
 
@@ -30,22 +32,6 @@ namespace anomaly::core::stl {
 //    m_lowPassSmoother.repair();
 //    m_period = std::max(size_t(2), m_period);
 //}
-
-inline double square(double x) {
-    return x * x;
-}
-
-inline double biSquare(double x) {
-    return square(1.0 - square(x));
-}
-
-inline double cube(double x) {
-    return x * x * x;
-}
-
-inline double triCube(double x) {
-    return cube(1.0 - cube(x));
-}
 
 static constexpr auto repairPeriod(Index period) {
     return std::max(Index(2), period);
@@ -81,6 +67,7 @@ StlAlgorithm::StlAlgorithm(const StlConfiguration& config, Index numberOfPoints)
 
 static void
 computeRobustnessWeights(const Eigen::VectorXd& input, const Eigen::VectorBlock<Eigen::VectorXd> fit, Eigen::VectorXd& robustnessWeights) {
+    using utils::biSquare;
     const auto n = input.size();
 
     robustnessWeights = (input - fit).cwiseAbs();
@@ -193,9 +180,11 @@ static bool est(const T&         y, // size: n
                 Eigen::VectorXd& weights, // size: n
                 bool             use_rw,
                 Eigen::VectorXd& robustness_weights) { // size: n
-    auto   n     = y.size();
-    double range = double(n - 1);
-    auto   h     = std::max(xs - double(n_left + 1), double(n_right) - xs);
+    using utils::square;
+    using utils::triCube;
+    auto n     = y.size();
+    auto range = double(n - 1);
+    auto h     = std::max(xs - double(n_left + 1), double(n_right) - xs);
     if (len > n)
         h += double((len - n) / 2);
     double h9 = .999 * h;
@@ -229,7 +218,7 @@ static bool est(const T&         y, // size: n
         auto   b = xs - a;
         double c = 0.0;
         for (Index j = n_left; j < n_right; ++j)
-            c += weights[j] * square(double(j + 1) - a);
+            c += weights[j] * utils::square(double(j + 1) - a);
         if (sqrt(c) > .001 * range) {
             b /= c;
             // points are spread out enough to compute slope

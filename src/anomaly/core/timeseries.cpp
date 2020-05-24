@@ -12,8 +12,23 @@ TimeSeries::TimeSeries(const TimeSeriesConfiguration& config)
     }
 }
 
+Eigen::VectorXd TimeSeries::toVectorXdFillNulls() const {
+    // TODO(sw) what if points are missing at the beginning?
+    Eigen::VectorXd result(m_points.size());
+    size_t          i        = 0;
+    double          previous = 0.0;
+    for (const auto& point : m_points) {
+        double value = previous;
+        if (point.m_value)
+            value = *point.m_value;
+        result[i] = value;
+        ++i;
+    }
+    return result;
+}
+
 TimeSeries derivative(const TimeSeries& time_series) {
-    // TODO return a timeseries instead
+    // TODO(sw) return a timeseries instead
     TimeSeries           output(time_series.getConfig());
     std::optional<Point> previous{};
     size_t               idx = 0;

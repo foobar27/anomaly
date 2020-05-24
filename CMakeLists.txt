@@ -73,12 +73,13 @@ set(ANOMALY_PUBLIC_HEADERS
         src/anomaly/core/timeseries.hpp
         src/anomaly/core/lowess.hpp
         src/anomaly/core/stl.hpp
+	src/anomaly/core/dsp.hpp
         )
-add_library(anomaly_headers INTERFACE)
-target_include_directories(anomaly_headers INTERFACE
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
-  $<INSTALL_INTERFACE:include>
-)
+#add_library(anomaly_headers INTERFACE)
+#target_include_directories(anomaly_headers INTERFACE
+#  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
+#  $<INSTALL_INTERFACE:include>
+#)
 
 add_library(anomaly
     ${ANOMALY_PUBLIC_HEADERS}
@@ -86,23 +87,22 @@ add_library(anomaly
     src/anomaly/core/stl.cpp
     src/anomaly/whisper/model.cpp
     )
-target_link_libraries(anomaly PUBLIC anomaly_headers
-                                       INTERFACE ${CMAKE_DL_LIBS}
-                                       Eigen3::Eigen
-                                       Boost::date_time
-                                       Boost::filesystem
-                                       Boost::iostreams)
+target_link_libraries(anomaly #PUBLIC anomaly_headers
+  INTERFACE ${CMAKE_DL_LIBS}
+  Eigen3::Eigen
+  Boost::date_time
+  Boost::filesystem
+  Boost::iostreams)
+target_include_directories(anomaly PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+#target_include_directories(anomaly PUBLIC
+#  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
+#  #$<INSTALL_INTERFACE:include>
+#)
 
-set_target_properties(anomaly PROPERTIES PUBLIC_HEADER "${ANOMALY_PUBLIC_HEADERS}")
+#set_target_properties(anomaly PROPERTIES PUBLIC_HEADER "${ANOMALY_PUBLIC_HEADERS}")
 
 enable_testing()
 
-# Test library
-#add_library(anomaly_test_lib SHARED test/extension.cpp test/Interfaces.hpp)
-#target_link_libraries(anomaly_test_lib PRIVATE extension_system_headers)
-# target_link_libraries(anomaly PRIVATE Boost::boost)
-
-# Test program
 add_executable(anomaly_test
     test/test_main.cpp
     test/matchers.hpp
@@ -111,11 +111,9 @@ add_executable(anomaly_test
     test/stl_test.cpp
     test/catch.hpp)
 target_link_libraries(anomaly_test anomaly)
+target_include_directories(anomaly_test PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/test)
 add_test(anomaly_test anomaly_test -r junit -o junit.xml -s)
 
-# TODO add src/main.cpp
-# Examples
-## Example 1
 add_executable(anomaly_example1
     src/anomaly/main.cpp # TODO move to examples dir
     )
