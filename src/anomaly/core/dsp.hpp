@@ -1,6 +1,7 @@
 #pragma once
 
 #include <eigen3/Eigen/Dense>
+#include "utils.hpp"
 
 namespace anomaly::core::dsp {
 
@@ -40,7 +41,7 @@ auto segment(T& input, Interval interval) {
 
 template <typename Derived>
 inline auto gaussianWeights(const Eigen::VectorBlock<Derived>& values, double middleValue, double delta) {
-    return (values.array() - middleValue).unaryExpr(&square) / (2.0 * square(delta));
+    return (values.array() - middleValue).unaryExpr(&utils::square) / (2.0 * utils::square(delta));
 }
 }
 
