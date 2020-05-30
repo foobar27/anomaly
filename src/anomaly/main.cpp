@@ -1,5 +1,7 @@
 #include "whisper/model.hpp"
 #include "anomaly/core/stl.hpp"
+#include "anomaly/core/dsp.hpp"
+#include "anomaly/io/tsv.hpp"
 
 #include <cassert>
 #include <chrono>
@@ -85,6 +87,7 @@ static TimeSeries determineSeasonalComponent(const TimeSeries& input) {
 
 int main0() {
     using namespace anomaly::core::stl;
+    using anomaly::io::tsv::TsvOutputFile;
     ifstream is("/home/sebastien/percent.wsp", ifstream::binary);
     MetaData meta_data{};
     is >> meta_data;
@@ -135,15 +138,15 @@ int main0() {
         }
         auto finish       = std::chrono::high_resolution_clock::now();
         auto microseconds = std::chrono::duration_cast<std::chrono::microseconds>(finish - start);
-        std::cout << (microseconds.count() / n_iterations) << "µs\n";
+        std::cout << (microseconds.count() / n_iterations) << "µs" << std::endl;
     }
 
     decomposition.stl(input);
 
-    ofstream f("/tmp/percent-decomposed.tsv");
-    f << "x\tinput\tseason\ttrend" << endl;
+    ANOMALY_TSV_FORMAT(Row, (int, timestamp), (double, input), (double, season), (double, trend));
+    TsvOutputFile<Row> f("/tmp/percent-decomposed.tsv");
     for (int i = 0; i < input.size(); ++i) {
-        f << i << "\t" << input[i] << "\t" << decomposition.season()[i] << "\t" << decomposition.trend()[i] << endl;
+        f << Row{i, input[i], decomposition.season()[i],decomposition.trend()[i]};
     }
 
     return 0;
@@ -161,7 +164,8 @@ int main2() {
     return 0;
 }
 
-int main() {
+int main3() {
+    using anomaly::io::tsv::TsvOutputFile;
     ifstream is("/home/sebastien/end-offset.wsp", ifstream::binary);
     MetaData meta_data{};
     is >> meta_data;
@@ -181,7 +185,6 @@ int main() {
 
     // for (auto & archive_info : archive_infos) {
     {
-        ofstream      os("/tmp/end-offset-recent.tsv");
         auto          archive_info = archive_infos[0];
         vector<Point> points{};
 
@@ -199,7 +202,8 @@ int main() {
         // TODO(sw) implement a range?
         MedianEstimator median(0.001);
         MedianEstimator median_deviation(0.001);
-        os << "timestamp\tvalue\tmedian\tmedian_deviation\tseason" << endl;
+        ANOMALY_TSV_FORMAT(Row, (uint32_t, timestamp), (double, value), (double, median), (double, median_deviation), (double, season));
+        TsvOutputFile<Row> f("/tmp/end-offset-recent.tsv");
         for (auto point : diff.allPoints()) {
             double val    = *point.m_value;
             auto   season = 0.0; // seasonal_it->m_value;
@@ -208,9 +212,29 @@ int main() {
             median(no_season);
             double deviation = abs(no_season - *median);
             median_deviation(deviation);
-            os << point.m_timestamp << "\t" << val << "\t" << *median << "\t" << *median_deviation << "\t" << season << endl;
+            f << Row{point.m_timestamp, val, *median, *median_deviation, season};
         }
     }
 
     return 0;
+}
+
+int main() {
+    using namespace anomaly::core::dsp;
+    using anomaly::io::tsv::TsvOutputFile;
+    long            n         = 1000;
+    auto            positions = Eigen::VectorXd::LinSpaced(n, 1, 100);
+    Eigen::VectorXd input(n);
+    for (long i = 0; i < n; ++i) {
+        input[i] = 10.0 * sin(0.1 * i) + (i > n / 2 ? 5.0 : 10.0);
+    }
+
+    BilateralFilter filter{5};
+    auto output = filter(positions, input, 0.5, 0.5);
+
+    ANOMALY_TSV_FORMAT(Row, (long, timestamp), (double, input), (double, output));
+    TsvOutputFile<Row> f("/tmp/bilateral.tsv");
+    for (long i = 0; i < n; ++i) {
+        f << Row{i, input[i], output[i]};
+    }
 }

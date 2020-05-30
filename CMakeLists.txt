@@ -74,12 +74,8 @@ set(ANOMALY_PUBLIC_HEADERS
         src/anomaly/core/lowess.hpp
         src/anomaly/core/stl.hpp
 	src/anomaly/core/dsp.hpp
+        src/anomaly/io/tsv.hpp
         )
-#add_library(anomaly_headers INTERFACE)
-#target_include_directories(anomaly_headers INTERFACE
-#  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
-#  $<INSTALL_INTERFACE:include>
-#)
 
 add_library(anomaly
     ${ANOMALY_PUBLIC_HEADERS}
@@ -87,19 +83,13 @@ add_library(anomaly
     src/anomaly/core/stl.cpp
     src/anomaly/whisper/model.cpp
     )
-target_link_libraries(anomaly #PUBLIC anomaly_headers
+target_link_libraries(anomaly
   INTERFACE ${CMAKE_DL_LIBS}
   Eigen3::Eigen
   Boost::date_time
   Boost::filesystem
   Boost::iostreams)
 target_include_directories(anomaly PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
-#target_include_directories(anomaly PUBLIC
-#  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
-#  #$<INSTALL_INTERFACE:include>
-#)
-
-#set_target_properties(anomaly PROPERTIES PUBLIC_HEADER "${ANOMALY_PUBLIC_HEADERS}")
 
 enable_testing()
 
@@ -109,6 +99,7 @@ add_executable(anomaly_test
     test/matchers.cpp
     test/lowess_test.cpp
     test/stl_test.cpp
+    test/dsp_test.cpp
     test/catch.hpp)
 target_link_libraries(anomaly_test anomaly)
 target_include_directories(anomaly_test PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/test)

@@ -13,7 +13,7 @@ struct Interval {
     long m_size;
 
     Interval(long left, long size)
-        : m_left {left}
+        : m_left{left}
         , m_size{size} { }
 
     template <class T>
@@ -39,42 +39,53 @@ auto segment(T& input, Interval interval) {
     return input.segment(interval.m_left, interval.m_size);
 }
 
-template <typename Derived>
-inline auto gaussianWeights(const Eigen::VectorBlock<Derived>& values, double middleValue, double delta) {
-    return (values.array() - middleValue).unaryExpr(&utils::square) / (2.0 * utils::square(delta));
-}
 }
 
-// TODO(sw) factor out windowing pattern
-// TODO(sw) h should be in seconds, not in array-indices
-template <typename DerivedPositions, typename DerivedValues>
-auto bilateralFiltering(const Eigen::MatrixBase<DerivedPositions>& positions,
-                        const Eigen::MatrixBase<DerivedValues>&    input,
-                        double                                     delta_d,
-                        double                                     delta_i,
-                        Eigen::VectorXd::Index                     h) {
-    using namespace detail;
-    using Index = typename Eigen::VectorXd::Index;
-    Eigen::VectorXd weights{2 * h + 1};
-    Eigen::VectorXd output{input.size()};
-    const Interval  window{-h, 2 * h + 1}; // center at 0
+struct BilateralFilter {
+    using Index = Eigen::VectorXd::Index;
 
-    for (Index center = 0; center < input.size(); ++center) {
-        const auto intersection  = intersect(window, Interval(input) - center); // the previous center is still at 0
-        const auto positions_seg = segment(positions, intersection + center);
-        const auto input_seg     = segment(input, intersection + center);
-        auto       weights_seg   = segment(weights, {0, intersection.m_size});
-        weights_seg = gaussianWeights(positions_seg, positions[center], delta_d) * gaussianWeights(input_seg, input[center], delta_i);
-        const double sum_of_weights = weights.sum();
-        if (abs(sum_of_weights) < 0.001) { // TODO(sw) arbitrary threshold
-            // no smoothing because of numeric instability
-            output[center] = input[center];
-            continue;
+    BilateralFilter(Index windowSizeInPoints)
+        : m_windowSizeInPoints(windowSizeInPoints) { }
+
+    // TODO(sw) factor out windowing pattern
+    // TODO(sw) h should be in seconds, not in array-indices
+    template <typename DerivedPositions, typename DerivedValues>
+    auto operator()(const Eigen::MatrixBase<DerivedPositions>& positions,
+                    const Eigen::MatrixBase<DerivedValues>&    input,
+                    double                                     delta_d,
+                    double                                     delta_i) {
+        using namespace detail;
+        using Index       = typename Eigen::VectorXd::Index;
+        auto            h = m_windowSizeInPoints;
+        Eigen::VectorXd output{input.size()};
+        const Interval  window{-h, 2 * h + 1}; // center at 0
+
+        for (Index center = 0; center < input.size(); ++center) {
+            const auto intersection  = intersect(window, Interval(input) - center); // the previous center is still at 0
+            const auto positions_seg = segment(positions, intersection + center);
+            const auto input_seg     = segment(input, intersection + center);
+            auto       weights_seg   = segment(m_weights, {0, intersection.m_size});
+            weights_seg = gaussianWeights(positions_seg, positions[center], delta_d) * gaussianWeights(input_seg, input[center], delta_i);
+            const double sum_of_weights = weights_seg.sum();
+            if (abs(sum_of_weights) < 0.001) { // TODO(sw) arbitrary threshold
+                // no smoothing because of numeric instability
+                output[center] = input[center];
+                continue;
+            }
+            weights_seg /= sum_of_weights;
+            output[center] = weights_seg.dot(input_seg);
         }
-        weights_seg /= sum_of_weights;
-        output[center] = weights_seg.dot(input_seg);
+        return output;
     }
-    return output;
-}
+
+private:
+    template <typename Derived>
+    inline auto gaussianWeights(const Eigen::VectorBlock<Derived>& values, double middleValue, double delta) {
+        return (values.array() - middleValue).unaryExpr(&utils::square) / (2.0 * utils::square(delta));
+    }
+
+    const Index     m_windowSizeInPoints;
+    Eigen::VectorXd m_weights{2 * m_windowSizeInPoints + 1};
+};
 
 } // end namespace anomaly::core::dsp
