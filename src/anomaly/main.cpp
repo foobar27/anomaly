@@ -230,7 +230,9 @@ int main() {
     }
 
     BilateralFilter filter{5};
-    auto output = filter(positions, input, 0.5, 0.5);
+    filter.setDeltaD(0.5);
+    filter.setDeltaI(0.5);
+    auto output = filter(positions, input);
 
     ANOMALY_TSV_FORMAT(Row, (long, timestamp), (double, input), (double, output));
     TsvOutputFile<Row> f("/tmp/bilateral.tsv");
