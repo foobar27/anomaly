@@ -9,7 +9,7 @@ namespace detail {
 
 // TODO(sw) replace by Eigen 3.4 slices
 struct Interval {
-    using Index = Eigen::VectorXd::Index;
+    using Index = Eigen::Index;
     Index m_left;
     Index m_size;
 
@@ -46,7 +46,7 @@ auto segment(T& input, Interval interval) {
 
 template <int Radius>
 struct WindowOperation {
-    using Index      = Eigen::VectorXd::Index;
+    using Index      = Eigen::Index;
     using RadiusType = utils::StaticOrDynamicSize<Radius>;
 
     template <typename = std::enable_if<RadiusType::isStatic>>
@@ -75,7 +75,7 @@ struct WindowOperation {
 
 template <typename Scalar, int Radius>
 struct BilateralFilter {
-    using Index               = Eigen::VectorXd::Index;
+    using Index               = Eigen::Index;
     using WindowOperationType = WindowOperation<Radius>;
     using RadiusType          = typename WindowOperationType::RadiusType;
     using WeightsType         = Eigen::Matrix<Scalar, RadiusType::isStatic ? 2 * RadiusType::staticValue + 1 : Eigen::Dynamic, 1>;
