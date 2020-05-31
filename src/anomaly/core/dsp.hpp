@@ -1,5 +1,9 @@
 #pragma once
 
+#include <boost/accumulators/accumulators.hpp>
+#include <boost/accumulators/framework/extractor.hpp>
+#include <boost/accumulators/statistics/rolling_mean.hpp>
+#include <boost/accumulators/statistics/stats.hpp>
 #include <eigen3/Eigen/Dense>
 #include "utils.hpp"
 
@@ -44,6 +48,33 @@ auto segment(T& input, Interval interval) {
 
 }
 
+// If input has size n, output has size n-len+1.
+// TODO(sw) make a struct, and make the accumulator a member
+// TODO(sw) make accumulator configurable
+// TODO(sw) template argument Scalar
+// TODO(sw) template arguments DerivedInput
+// TODO(sw) output vector or copy elision?
+// TODO(sw) make len StaticOrDynamicSize
+void movingAverage(const Eigen::VectorXd& input, Eigen::Index len, Eigen::VectorXd& output) {
+    using namespace std;
+    using namespace boost::accumulators;
+    accumulator_set<double, stats<tag::rolling_mean>> acc(tag::rolling_window::window_size = len);
+    for_each(input.data(), input.data() + len, acc);
+
+    // get the first average
+    output[0] = rolling_mean(acc);
+
+    auto new_n = input.size() - len + 1;
+    if (new_n > 1) {
+        auto k = len - 1;
+        for (Eigen::Index j = 1; j < new_n; ++j) {
+            k++;
+            acc(input[k]);
+            output[j] = rolling_mean(acc);
+        }
+    }
+}
+
 template <int Radius>
 struct WindowOperation {
     using Index      = Eigen::Index;
@@ -73,7 +104,7 @@ struct WindowOperation {
     RadiusType m_radius;
 };
 
-template <typename Scalar, int Radius>
+template <typename Scalar, Eigen::Index Radius>
 struct BilateralFilter {
     using Index               = Eigen::Index;
     using WindowOperationType = WindowOperation<Radius>;

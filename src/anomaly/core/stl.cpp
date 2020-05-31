@@ -303,33 +303,13 @@ static void ess(const Eigen::MatrixBase<Derived1>& y, // size: n
     }
 }
 
-// If input has size n, output has size n-len+1.
-static void movingAverage(const Eigen::VectorXd& input, Index len, Eigen::VectorXd& output) {
-    using namespace std;
-    using namespace boost::accumulators;
-    accumulator_set<double, stats<tag::rolling_mean>> acc(tag::rolling_window::window_size = len);
-    for_each(input.data(), input.data() + len, acc);
-
-    // get the first average
-    output[0] = rolling_mean(acc);
-
-    auto new_n = input.size() - len + 1;
-    if (new_n > 1) {
-        auto k = len - 1;
-        for (Index j = 1; j < new_n; ++j) {
-            k++;
-            acc(input[k]);
-            output[j] = rolling_mean(acc);
-        }
-    }
-}
-
 static void fts(const Eigen::VectorXd& input, Index period, Eigen::VectorXd& trend, Eigen::VectorXd& tmp) {
     // Three subsequent moving averages: (N=original_n, P=period)
     // - input has length: n = N + 2*P
     // - smoothing with len=period yields a vector of length: n - P + 1 = N + 2*P - P + 1 = N + P + 1
     // - smoothing with len=period yields a vector of length: N + P + 1 - P  + 1 = N + 2
     // - smoothing with len=3 yields a vector of length: N + 2 - 3 + 1 = N (which is the original size)
+    using namespace utils;
     auto n = input.size();
     movingAverage(input, period, trend);
     movingAverage(trend.segment(0, n - period + 1), period, tmp);
