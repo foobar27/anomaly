@@ -229,10 +229,16 @@ int main() {
         input[i] = 10.0 * sin(0.1 * i) + (i > n / 2 ? 5.0 : 10.0);
     }
 
-    BilateralFilter filter{5};
-    filter.setDeltaD(0.5);
-    filter.setDeltaI(0.5);
-    auto output = filter(positions, input);
+    BilateralFilter<double, Eigen::Dynamic> dynamicFilter{5};
+    dynamicFilter.setDeltaD(0.5);
+    dynamicFilter.setDeltaI(0.5);
+    auto output = dynamicFilter(positions, input);
+
+    BilateralFilter<double, 5> staticFilter;
+    staticFilter.setDeltaD(0.5);
+    staticFilter.setDeltaI(0.5);
+    auto output2 = dynamicFilter(positions, input);
+
 
     ANOMALY_TSV_FORMAT(Row, (long, timestamp), (double, input), (double, output));
     TsvOutputFile<Row> f("/tmp/bilateral.tsv");

@@ -32,7 +32,7 @@ struct Interval {
 };
 
 constexpr Interval intersect(const Interval& a, const Interval& b) {
-    auto m_left = std::max(a.m_left, b.m_left); // inclusive
+    auto m_left  = std::max(a.m_left, b.m_left); // inclusive
     auto m_right = std::min(a.m_left + a.m_size, b.m_left + b.m_size); // exclusive
     return {m_left, m_right - m_left};
 }
@@ -44,16 +44,23 @@ auto segment(T& input, Interval interval) {
 
 }
 
+template <int Radius>
 struct WindowOperation {
-    using Index = Eigen::VectorXd::Index;
-    WindowOperation(Index windowSizeInPoints)
-        : m_windowSizeInPoints{windowSizeInPoints} { }
+    using Index      = Eigen::VectorXd::Index;
+    using RadiusType = utils::StaticOrDynamicSize<Radius>;
+
+    template <typename = std::enable_if<RadiusType::isStatic>>
+    WindowOperation() { }
+
+    template <typename = std::enable_if<!RadiusType::isStatic>>
+    WindowOperation(int radius)
+        : m_radius{radius} { }
 
     template <typename Self, typename DerivedPositions, typename DerivedValues>
     auto operator()(Self& self, const Eigen::MatrixBase<DerivedPositions>& positions, const Eigen::MatrixBase<DerivedValues>& input) const {
         using namespace detail;
         Eigen::VectorXd output{input.size()};
-        const Interval  window{-m_windowSizeInPoints, 2 * m_windowSizeInPoints + 1};
+        const Interval  window{-m_radius(), 2 * m_radius() + 1};
         for (Index center = 0; center < input.size(); ++center) {
             const auto intersection  = intersect(window, Interval(input) - center);
             const auto positions_seg = segment(positions, intersection + center);
@@ -63,16 +70,23 @@ struct WindowOperation {
         return output;
     }
 
-
-    const Index m_windowSizeInPoints;
+    RadiusType m_radius;
 };
 
+template <typename Scalar, int Radius>
 struct BilateralFilter {
-    using Index = Eigen::VectorXd::Index;
+    using Index               = Eigen::VectorXd::Index;
+    using WindowOperationType = WindowOperation<Radius>;
+    using RadiusType          = typename WindowOperationType::RadiusType;
+    using WeightsType         = Eigen::Matrix<Scalar, RadiusType::isStatic ? 2 * RadiusType::staticValue + 1 : Eigen::Dynamic, 1>;
 
-    BilateralFilter(Index windowSizeInPoints)
-        : m_windowOperation(windowSizeInPoints)
-        , m_weights(2 * windowSizeInPoints + 1) { }
+    template <typename = std::enable_if<RadiusType::isStatic>>
+    BilateralFilter() { }
+
+    template <typename = std::enable_if<!RadiusType::isStatic>>
+    BilateralFilter(int radius)
+        : m_windowOperation(radius)
+        , m_weights(2 * radius + 1) { }
 
     void setDeltaD(double value) {
         m_deltaD = value;
@@ -110,12 +124,12 @@ private:
         return (values.array() - middleValue).unaryExpr(&utils::square) / (2.0 * utils::square(delta));
     }
 
-    const WindowOperation m_windowOperation;
-    Eigen::VectorXd m_weights;
-    double          m_deltaD{1.0};
-    double          m_deltaI{1.0};
+    const WindowOperation<Radius> m_windowOperation;
+    WeightsType                   m_weights;
+    double                        m_deltaD{1.0};
+    double                        m_deltaI{1.0};
 
-    friend class WindowOperation;
+    friend class WindowOperation<Radius>;
 };
 
 } // end namespace anomaly::core::dsp
