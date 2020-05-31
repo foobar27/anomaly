@@ -131,7 +131,7 @@ static inline double smartMedianDestructive(Eigen::VectorXd& a) {
     // We know the element is in the first part (excluding m1), and it's actually the maximum.
     m2_val = *std::max_element(a.data(), a.data() + m1);
     m2_val = a[m2];
-    return double(m1 + m2) / 2.0;
+    return double(m1_val + m2_val) / 2.0;
 }
 
 template <typename Derived>
