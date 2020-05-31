@@ -1,6 +1,6 @@
 #include "whisper/model.hpp"
-#include "anomaly/core/stl.hpp"
 #include "anomaly/core/dsp.hpp"
+#include "anomaly/core/stl.hpp"
 #include "anomaly/io/tsv.hpp"
 
 #include <cassert>
@@ -226,7 +226,7 @@ int main() {
     auto            positions = Eigen::VectorXd::LinSpaced(n, 1, 100);
     Eigen::VectorXd input(n);
     for (long i = 0; i < n; ++i) {
-        input[i] = 10.0 * sin(0.1 * i) + (i > n / 2 ? 5.0 : 10.0);
+        input[i] = 10.0 * sin(0.1 * double(i)) + (i > n / 2 ? 5.0 : 10.0);
     }
 
     BilateralFilter<double, Eigen::Dynamic> dynamicFilter{5};

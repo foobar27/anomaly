@@ -53,7 +53,7 @@ struct WindowOperation {
     WindowOperation() { }
 
     template <typename = std::enable_if<!RadiusType::isStatic>>
-    WindowOperation(int radius)
+    explicit WindowOperation(int radius)
         : m_radius{radius} { }
 
     template <typename Self, typename DerivedPositions, typename DerivedValues>
@@ -84,15 +84,15 @@ struct BilateralFilter {
     BilateralFilter() { }
 
     template <typename = std::enable_if<!RadiusType::isStatic>>
-    BilateralFilter(int radius)
+    explicit BilateralFilter(int radius)
         : m_windowOperation(radius)
         , m_weights(2 * radius + 1) { }
 
-    void setDeltaD(double value) {
+    void setDeltaD(Scalar value) {
         m_deltaD = value;
     }
 
-    void setDeltaI(double value) {
+    void setDeltaI(Scalar value) {
         m_deltaI = value;
     }
 
@@ -110,7 +110,7 @@ private:
         auto window_center = -window.m_left;
         auto weights       = segment(m_weights, {0, window.m_size});
         weights = gaussianWeights(positions, positions[window_center], m_deltaD) * gaussianWeights(input, input[window_center], m_deltaI);
-        const double sum_of_weights = weights.sum();
+        const auto sum_of_weights = weights.sum();
         if (abs(sum_of_weights) < 0.001) { // TODO(sw) arbitrary threshold
             // no smoothing because of numeric instability
             return input[window_center];
@@ -120,16 +120,16 @@ private:
     }
 
     template <typename Derived>
-    inline auto gaussianWeights(const Eigen::MatrixBase<Derived>& values, double middleValue, double delta) {
+    inline auto gaussianWeights(const Eigen::MatrixBase<Derived>& values, Scalar middleValue, Scalar delta) {
         return (values.array() - middleValue).unaryExpr(&utils::square) / (2.0 * utils::square(delta));
     }
 
     const WindowOperation<Radius> m_windowOperation;
     WeightsType                   m_weights;
-    double                        m_deltaD{1.0};
-    double                        m_deltaI{1.0};
+    Scalar                        m_deltaD{1.0};
+    Scalar                        m_deltaI{1.0};
 
-    friend class WindowOperation<Radius>;
+    friend struct WindowOperation<Radius>;
 };
 
 } // end namespace anomaly::core::dsp
