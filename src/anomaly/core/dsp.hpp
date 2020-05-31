@@ -48,32 +48,43 @@ auto segment(T& input, Interval interval) {
 
 }
 
-// If input has size n, output has size n-len+1.
-// TODO(sw) make a struct, and make the accumulator a member
-// TODO(sw) make accumulator configurable
-// TODO(sw) template argument Scalar
-// TODO(sw) template arguments DerivedInput
-// TODO(sw) output vector or copy elision?
-// TODO(sw) make len StaticOrDynamicSize
-void movingAverage(const Eigen::VectorXd& input, Eigen::Index len, Eigen::VectorXd& output) {
-    using namespace std;
-    using namespace boost::accumulators;
-    accumulator_set<double, stats<tag::rolling_mean>> acc(tag::rolling_window::window_size = len);
-    for_each(input.data(), input.data() + len, acc);
+template <typename Scalar, int WindowSize = Eigen::Dynamic>
+struct MovingAverageFilter {
+    using Index          = Eigen::Index;
+    using WindowSizeType = utils::StaticOrDynamicSize<WindowSize>;
 
-    // get the first average
-    output[0] = rolling_mean(acc);
+    template <typename = std::enable_if<WindowSizeType::isStatic>>
+    MovingAverageFilter() { }
 
-    auto new_n = input.size() - len + 1;
-    if (new_n > 1) {
-        auto k = len - 1;
-        for (Eigen::Index j = 1; j < new_n; ++j) {
-            k++;
-            acc(input[k]);
-            output[j] = rolling_mean(acc);
+    template <typename = std::enable_if<!WindowSizeType::isStatic>>
+    MovingAverageFilter(Index radius)
+        : m_windowSize{radius} { }
+
+    // If input has size n, output has size n-len+1.
+    template<typename Input, typename Output>
+    void operator()(const Input& input, Output& output) {
+        using namespace std;
+        using namespace boost::accumulators;
+        accumulator_set<Scalar, stats<tag::rolling_mean>> m_acc{tag::rolling_mean::window_size = m_windowSize()};
+        for_each(input.data(), input.data() + m_windowSize(), m_acc);
+
+        // get the first average
+        output[0] = rolling_mean(m_acc);
+
+        auto new_n = input.size() - m_windowSize() + 1;
+        if (new_n > 1) {
+            auto k = m_windowSize() - 1;
+            for (Eigen::Index j = 1; j < new_n; ++j) {
+                k++;
+                m_acc(input[k]);
+                output[j] = rolling_mean(m_acc);
+            }
         }
     }
-}
+
+private:
+    const WindowSizeType m_windowSize;
+};
 
 template <int Radius>
 struct WindowOperation {
@@ -84,7 +95,7 @@ struct WindowOperation {
     WindowOperation() { }
 
     template <typename = std::enable_if<!RadiusType::isStatic>>
-    explicit WindowOperation(int radius)
+    explicit WindowOperation(Index radius)
         : m_radius{radius} { }
 
     template <typename Self, typename DerivedPositions, typename DerivedValues>
@@ -104,7 +115,7 @@ struct WindowOperation {
     RadiusType m_radius;
 };
 
-template <typename Scalar, Eigen::Index Radius>
+template <typename Scalar, Eigen::Index Radius = Eigen::Dynamic>
 struct BilateralFilter {
     using Index               = Eigen::Index;
     using WindowOperationType = WindowOperation<Radius>;

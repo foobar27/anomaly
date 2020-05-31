@@ -11,6 +11,7 @@
 #include <boost/array.hpp>
 #include <eigen3/Eigen/Dense>
 
+#include "dsp.hpp"
 #include "utils.hpp"
 
 using Scalar = Eigen::VectorXd::Scalar;
@@ -66,7 +67,7 @@ StlAlgorithm::StlAlgorithm(const StlConfiguration& config, Index numberOfPoints)
     , m_tmp5(tmpSize(config, numberOfPoints)) { }
 
 static void
-computeRobustnessWeights(const Eigen::VectorXd& input, const Eigen::VectorBlock<Eigen::VectorXd> fit, Eigen::VectorXd& robustnessWeights) {
+computeRobustnessWeights(const Eigen::VectorXd& input, const Eigen::VectorBlock<Eigen::VectorXd>& fit, Eigen::VectorXd& robustnessWeights) {
     using utils::biSquare;
     const auto n = input.size();
 
@@ -309,11 +310,14 @@ static void fts(const Eigen::VectorXd& input, Index period, Eigen::VectorXd& tre
     // - smoothing with len=period yields a vector of length: n - P + 1 = N + 2*P - P + 1 = N + P + 1
     // - smoothing with len=period yields a vector of length: N + P + 1 - P  + 1 = N + 2
     // - smoothing with len=3 yields a vector of length: N + 2 - 3 + 1 = N (which is the original size)
-    using namespace utils;
+    using namespace dsp;
+    using Scalar = Eigen::VectorXd::Scalar;
     auto n = input.size();
-    movingAverage(input, period, trend);
-    movingAverage(trend.segment(0, n - period + 1), period, tmp);
-    movingAverage(tmp.segment(0, n - 2 * period + 2), 3, trend);
+    MovingAverageFilter<Scalar> big_filter(period);
+    MovingAverageFilter<Scalar, 3> small_filter;
+    big_filter(input, trend);
+    big_filter(trend.segment(0, n - period + 1), tmp);
+    small_filter(tmp.segment(0, n - 2 * period + 2), trend);
 }
 
 template <typename DerivedInput>
