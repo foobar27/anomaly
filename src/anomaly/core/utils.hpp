@@ -35,33 +35,33 @@ concept DynamicSize = requires {
     Value == -1;
 };
 
-template <Eigen::Index Value> requires StaticOrDynamicSize<Value>
-struct StaticOrDynamicSizeContainer {
+template <Eigen::Index Value>
+requires StaticOrDynamicSize<Value> struct StaticOrDynamicSizeContainer {
     static constexpr Eigen::Index staticValue = Value;
-    static constexpr bool isStatic = true;
+    static constexpr bool         isStatic    = true;
     static_assert(Value >= 0);
 
-    constexpr StaticOrDynamicSizeContainer() { }
+    constexpr StaticOrDynamicSizeContainer() noexcept { }
 
-    constexpr auto operator()() const {
+    [[nodiscard]] constexpr auto operator()() const noexcept {
         return Value;
     }
 
-//    template<Eigen::Index OtherValue>
-//    constexpr StaticOrDynamicSizeContainer<Value + OtherValue> operator+(constexpr OtherValue) const requires StaticSize<OtherValue>{
-//        return {};
-//    }
+    template <Eigen::Index OtherValue>
+    constexpr StaticOrDynamicSizeContainer<Value + OtherValue> operator+(StaticOrDynamicSizeContainer<OtherValue>) const noexcept requires StaticSize<OtherValue> {
+        return {};
+    }
 };
 
 template <>
 struct StaticOrDynamicSizeContainer<Eigen::Dynamic> {
     static constexpr Eigen::Index staticValue = Eigen::Dynamic;
-    static constexpr bool isStatic = false;
+    static constexpr bool         isStatic    = false;
 
-    constexpr StaticOrDynamicSizeContainer(Eigen::Index value)
+    constexpr StaticOrDynamicSizeContainer(Eigen::Index value) noexcept
         : m_value(value) { }
 
-    auto operator()() const {
+    auto operator()() const noexcept {
         return m_value;
     }
 
