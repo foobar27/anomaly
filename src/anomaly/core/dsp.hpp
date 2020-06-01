@@ -87,6 +87,7 @@ private:
 template <Eigen::Index Radius> requires utils::StaticOrDynamicSize<Radius>
 struct WindowOperation {
     using Index      = Eigen::Index;
+    using RadiusType = utils::StaticOrDynamicSizeContainer<Radius>;
 
     WindowOperation() requires utils::StaticSize<Radius> {}
 
@@ -107,7 +108,7 @@ struct WindowOperation {
         return output;
     }
 
-    utils::StaticOrDynamicSizeContainer<Radius> m_radius;
+    RadiusType m_radius;
 };
 
 template <typename Scalar, Eigen::Index Radius = Eigen::Dynamic> requires utils::StaticOrDynamicSize<Radius>

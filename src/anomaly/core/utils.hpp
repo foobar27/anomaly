@@ -37,26 +37,31 @@ concept DynamicSize = requires {
 
 template <Eigen::Index Value> requires StaticOrDynamicSize<Value>
 struct StaticOrDynamicSizeContainer {
-    static constexpr bool         isStatic    = true;
     static constexpr Eigen::Index staticValue = Value;
+    static constexpr bool isStatic = true;
     static_assert(Value >= 0);
 
-    StaticOrDynamicSizeContainer() { }
+    constexpr StaticOrDynamicSizeContainer() { }
 
-    constexpr Eigen::Index operator()() const {
+    constexpr auto operator()() const {
         return Value;
     }
+
+//    template<Eigen::Index OtherValue>
+//    constexpr StaticOrDynamicSizeContainer<Value + OtherValue> operator+(constexpr OtherValue) const requires StaticSize<OtherValue>{
+//        return {};
+//    }
 };
 
 template <>
 struct StaticOrDynamicSizeContainer<Eigen::Dynamic> {
-    static constexpr bool         isStatic    = false;
     static constexpr Eigen::Index staticValue = Eigen::Dynamic;
+    static constexpr bool isStatic = false;
 
-    StaticOrDynamicSizeContainer(Eigen::Index value)
+    constexpr StaticOrDynamicSizeContainer(Eigen::Index value)
         : m_value(value) { }
 
-    Eigen::Index operator()() const {
+    auto operator()() const {
         return m_value;
     }
 

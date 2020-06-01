@@ -75,6 +75,7 @@ set(ANOMALY_PUBLIC_HEADERS
         src/anomaly/core/stl.hpp
 	src/anomaly/core/dsp.hpp
         src/anomaly/io/tsv.hpp
+	src/anomaly/core/utils.hpp
         )
 
 add_library(anomaly
@@ -100,6 +101,7 @@ add_executable(anomaly_test
     test/lowess_test.cpp
     test/stl_test.cpp
     test/dsp_test.cpp
+    test/utils_test.cpp
     test/catch.hpp)
 target_link_libraries(anomaly_test anomaly)
 target_include_directories(anomaly_test PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/test)
