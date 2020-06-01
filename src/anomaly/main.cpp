@@ -85,7 +85,7 @@ static TimeSeries determineSeasonalComponent(const TimeSeries& input) {
     return output;
 }
 
-int main0() {
+int main() {
     using namespace anomaly::core::stl;
     using anomaly::io::tsv::TsvOutputFile;
     ifstream is("/home/sebastien/percent.wsp", ifstream::binary);
@@ -219,7 +219,7 @@ int main3() {
     return 0;
 }
 
-int main() {
+int main4() {
     using namespace anomaly::core::dsp;
     using anomaly::io::tsv::TsvOutputFile;
     long            n         = 1000;
@@ -245,4 +245,5 @@ int main() {
     for (long i = 0; i < n; ++i) {
         f << Row{i, input[i], output[i]};
     }
+    return 0;
 }

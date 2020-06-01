@@ -51,13 +51,11 @@ auto segment(T& input, Interval interval) {
 template <typename Scalar, int WindowSize = Eigen::Dynamic>
 struct MovingAverageFilter {
     using Index          = Eigen::Index;
-    using WindowSizeType = utils::StaticOrDynamicSize<WindowSize>;
+    using WindowSizeType = utils::StaticOrDynamicSizeContainer<WindowSize>;
 
-    template <typename = std::enable_if<WindowSizeType::isStatic>>
-    MovingAverageFilter() { }
+    MovingAverageFilter() requires utils::StaticSize<WindowSize> { }
 
-    template <typename = std::enable_if<!WindowSizeType::isStatic>>
-    MovingAverageFilter(Index radius)
+    MovingAverageFilter(Index radius) requires utils::DynamicSize<WindowSize>
         : m_windowSize{radius} { }
 
     // If input has size n, output has size n-len+1.
@@ -86,16 +84,13 @@ private:
     const WindowSizeType m_windowSize;
 };
 
-template <int Radius>
+template <Eigen::Index Radius> requires utils::StaticOrDynamicSize<Radius>
 struct WindowOperation {
     using Index      = Eigen::Index;
-    using RadiusType = utils::StaticOrDynamicSize<Radius>;
 
-    template <typename = std::enable_if<RadiusType::isStatic>>
-    WindowOperation() { }
+    WindowOperation() requires utils::StaticSize<Radius> {}
 
-    template <typename = std::enable_if<!RadiusType::isStatic>>
-    explicit WindowOperation(Index radius)
+    explicit WindowOperation(Index radius) requires utils::DynamicSize<Radius>
         : m_radius{radius} { }
 
     template <typename Self, typename DerivedPositions, typename DerivedValues>
@@ -112,21 +107,19 @@ struct WindowOperation {
         return output;
     }
 
-    RadiusType m_radius;
+    utils::StaticOrDynamicSizeContainer<Radius> m_radius;
 };
 
-template <typename Scalar, Eigen::Index Radius = Eigen::Dynamic>
+template <typename Scalar, Eigen::Index Radius = Eigen::Dynamic> requires utils::StaticOrDynamicSize<Radius>
 struct BilateralFilter {
     using Index               = Eigen::Index;
     using WindowOperationType = WindowOperation<Radius>;
     using RadiusType          = typename WindowOperationType::RadiusType;
     using WeightsType         = Eigen::Matrix<Scalar, RadiusType::isStatic ? 2 * RadiusType::staticValue + 1 : Eigen::Dynamic, 1>;
 
-    template <typename = std::enable_if<RadiusType::isStatic>>
-    BilateralFilter() { }
+    BilateralFilter() requires utils::StaticSize<Radius>{ }
 
-    template <typename = std::enable_if<!RadiusType::isStatic>>
-    explicit BilateralFilter(int radius)
+    explicit BilateralFilter(int radius) requires utils::DynamicSize<Radius>
         : m_windowOperation(radius)
         , m_weights(2 * radius + 1) { }
 

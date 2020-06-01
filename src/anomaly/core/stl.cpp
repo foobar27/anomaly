@@ -73,10 +73,10 @@ computeRobustnessWeights(const Eigen::VectorXd& input, const Eigen::VectorBlock<
 
     robustnessWeights = (input - fit).cwiseAbs();
 
-    auto m0 = n / 2 + 1;
-    auto m1 = n - m0 + 1;
+    auto m0 = n / 2;
+    auto m1 = n - m0;
     std::sort(robustnessWeights.data(), robustnessWeights.data() + robustnessWeights.size());
-    auto cmad         = 3.0 * (robustnessWeights(m0) + robustnessWeights(m1)); // 6 * median abs resid
+    auto cmad         = 3.0 * (robustnessWeights[m0] + robustnessWeights[m1]); // 6 * median abs resid
     auto c9           = 0.999 * cmad;
     auto c1           = 0.001 * cmad;
     robustnessWeights = (input - fit).cwiseAbs().unaryExpr([c1, c9, cmad](double r) {
@@ -227,7 +227,10 @@ static bool est(const T&         y, // size: n
                 weights[j] *= (b * (double(j + 1) - a) + 1.0);
         }
     }
-    ys = weights_seg.dot(y.segment(n_left, n_right - n_left));
+    std::cout << "y has size " << y.size() << " and n_left=" << n_left << " n_right=" << n_right << " n_right-n_left=" << (n_right - n_left)
+              << std::endl;
+    auto foo = y.segment(n_left, n_right - n_left);
+    ys       = weights_seg.dot(y.segment(n_left, n_right - n_left));
     return true;
 }
 
@@ -311,9 +314,9 @@ static void fts(const Eigen::VectorXd& input, Index period, Eigen::VectorXd& tre
     // - smoothing with len=period yields a vector of length: N + P + 1 - P  + 1 = N + 2
     // - smoothing with len=3 yields a vector of length: N + 2 - 3 + 1 = N (which is the original size)
     using namespace dsp;
-    using Scalar = Eigen::VectorXd::Scalar;
-    auto n = input.size();
-    MovingAverageFilter<Scalar> big_filter(period);
+    using Scalar                     = Eigen::VectorXd::Scalar;
+    auto                           n = input.size();
+    MovingAverageFilter<Scalar>    big_filter(period);
     MovingAverageFilter<Scalar, 3> small_filter;
     big_filter(input, trend);
     big_filter(trend.segment(0, n - period + 1), tmp);

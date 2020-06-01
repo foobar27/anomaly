@@ -21,25 +21,39 @@ constexpr inline double triCube(double x) {
 }
 
 template <Eigen::Index Value>
-struct StaticOrDynamicSize {
-    static constexpr bool isStatic    = true;
-    static constexpr Eigen::Index    staticValue = Value;
+concept StaticOrDynamicSize = requires {
+    Value >= -1;
+};
+
+template <Eigen::Index Value>
+concept StaticSize = requires {
+    Value >= 0;
+};
+
+template <Eigen::Index Value>
+concept DynamicSize = requires {
+    Value == -1;
+};
+
+template <Eigen::Index Value> requires StaticOrDynamicSize<Value>
+struct StaticOrDynamicSizeContainer {
+    static constexpr bool         isStatic    = true;
+    static constexpr Eigen::Index staticValue = Value;
     static_assert(Value >= 0);
 
-    StaticOrDynamicSize() { }
+    StaticOrDynamicSizeContainer() { }
 
     constexpr Eigen::Index operator()() const {
         return Value;
     }
-
 };
 
 template <>
-struct StaticOrDynamicSize<Eigen::Dynamic> {
-    static constexpr bool isStatic    = false;
-    static constexpr Eigen::Index    staticValue = Eigen::Dynamic;
+struct StaticOrDynamicSizeContainer<Eigen::Dynamic> {
+    static constexpr bool         isStatic    = false;
+    static constexpr Eigen::Index staticValue = Eigen::Dynamic;
 
-    StaticOrDynamicSize(Eigen::Index value)
+    StaticOrDynamicSizeContainer(Eigen::Index value)
         : m_value(value) { }
 
     Eigen::Index operator()() const {
